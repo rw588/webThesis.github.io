@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gaussian-Schell Model Talbot Carpet</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #08080e; color: #ddddee; font-family: 'Consolas', monospace; font-size: 13px; padding: 10px; }
@@ -43,6 +47,17 @@
 </head>
 <body>
 <h2>Gaussian-Schell Model — Talbot Carpet Explorer</h2>
+<div class="subtitle">
+\[
+I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
+\;\underbrace{\exp\!\left[i\frac{2\pi}{d}\!\left(p+\frac{qz}{R(L)}\right)x
++ i\pi\frac{\lambda z}{d^2}pq\!\left(1+\frac{z}{R(L)}\right)\right]}_{\text{fringe phase + Talbot phase}}
+\;\underbrace{\exp\!\left[-\frac{p\lambda z}{2\sigma_I^2(L)d}x
+-\frac{(p^2+q^2)\lambda^2 z^2}{8\sigma_I^2(L)d^2}\right]}_{\text{intensity envelope}}
+\;\underbrace{\exp\!\left[-\frac{q^2\lambda^2 z^2}{2\sigma_c^2(L)d^2}\right]}_{\text{coherence filter}}
+\;\cdot e^{-x^2/2\sigma_I^2(L)}
+\]
+</div>
 
 <div class="canvas-row">
   <div class="canvas-wrap">
@@ -72,7 +87,7 @@
     <div class="slider-row"><label>M (harmonics)</label><input type="range" id="sl_M" min="1" max="25" step="1" value="8"><span id="v_M">8</span></div>
     <div class="slider-row"><label>σ_I(0)/d</label><input type="range" id="sl_sI0" min="0.3" max="30" step="0.1" value="0.5"><span id="v_sI0">0.50</span></div>
     <div class="slider-row"><label>σ_c(0)/d</label><input type="range" id="sl_sc0" min="0.1" max="30" step="0.1" value="0.5"><span id="v_sc0">0.50</span></div>
-    <div class="slider-row"><label>z_T/R(0) curvature</label><input type="range" id="sl_invR0" min="-0.5" max="0.5" step="0.005" value="0"><span id="v_invR0">0.000</span></div>
+    <div class="slider-row"><label>z_T/R(0) curvature</label><input type="range" id="sl_invR0" min="-1.5" max="1.5" step="0.005" value="0"><span id="v_invR0">0.000</span></div>
   </div>
   <div class="ctrl-col">
     <h3>View</h3>
@@ -83,6 +98,7 @@
       <button data-l="770">L=770z_T</button>
     </div>
     <div class="btn-row" id="xiBtns">
+      <button data-xi="5">±5d</button>
       <button data-xi="10">±10d</button>
       <button data-xi="20">±20d</button>
       <button data-xi="100">±100d</button>
@@ -208,8 +224,8 @@ function computeCarpet(M, f, sI0, sc0, LNorm, invR0, NZ, NX, xiHalf, xCenter, zm
     // --- GSM: double sum over (m, n)
     // I[x] = env[x] * Re[ sum_{m,n} B(m,n) * exp(phi(m,n)*x) ]
     // env[x] = exp(-x^2 / (2*sIL^2))
-    // B = a_m*a_n * exp(i*2pi*(m^2-n^2)*zeta*(1+zeta/rhoEff)) * exp(-(m^2+n^2)*zeta^2/sIL^2) * exp(-2*(m+n)^2*zeta^2/sCL^2)
-    // phi = i*2pi*((m-n) + (m+n)*zeta/rhoEff) - (m-n)*zeta/sIL^2
+    // B = a_m*a_n * exp(i*2pi*(m^2-n^2)*zeta*(1+zeta/rhoEff)) * exp(-(m^2+n^2)*zeta^2/(4*sIL^2)) * exp(-(m-n)^2*zeta^2/(2*sCL^2))
+    // phi = i*2pi*(m-n)*(1+zeta/rhoEff) + (m+n)*zeta/(2*sIL^2)
 
     const gsmRe = new Float64Array(NX);
     const sIL2 = sIL*sIL;
@@ -223,17 +239,17 @@ function computeCarpet(M, f, sI0, sc0, LNorm, invR0, NZ, NX, xiHalf, xCenter, zm
         if (Math.abs(amn) < 1e-15) continue;
 
         const Bamp = amn
-          * Math.exp(-(m*m + n*n)*zeta*zeta / sIL2)
-          * Math.exp(-2*(m+n)*(m+n)*zeta*zeta / sCL2);
+          * Math.exp(-(m*m + n*n)*zeta*zeta / (4.0*sIL2))
+          * Math.exp(-(m-n)*(m-n)*zeta*zeta / (2.0*sCL2));
         if (Math.abs(Bamp) < 1e-30) continue;
 
         const BphaseAngle = TWO_PI * (m*m - n*n) * zeta * (1 + zeta/rhoEff);
         const BRe = Bamp * Math.cos(BphaseAngle);
         const BIm = Bamp * Math.sin(BphaseAngle);
 
-        // phi = (i*2pi*((m-n) + (m+n)*zeta/rhoEff) - (m-n)*zeta/sIL^2)
-        const phiRe = -(m-n)*zeta / sIL2;
-        const phiIm = TWO_PI * ((m-n) + (m+n)*zeta/rhoEff);
+        // phi = i*2pi*(m-n)*(1+zeta/rhoEff) + (m+n)*zeta/(2*sIL^2)
+        const phiRe = (m+n)*zeta / (2.0*sIL2);
+        const phiIm = TWO_PI * (m-n) * (1.0 + zeta/rhoEff);
 
         // At x0: exp(phi*x0)
         const ang0 = phiIm * x0;
