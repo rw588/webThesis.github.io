@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gaussian-Schell Model Talbot Carpet</title>
+<title>Wigner–GSM Talbot Carpet</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
@@ -11,16 +11,18 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #08080e; color: #ddddee; font-family: 'Consolas', monospace; font-size: 13px; padding: 10px; }
-  h2 { text-align: center; margin-bottom: 8px; font-size: 15px; letter-spacing: 1px; color: #aaccff; }
+  h2 { text-align: center; margin-bottom: 6px; font-size: 15px; letter-spacing: 1px; color: #aaccff; }
+  .subtitle { text-align: center; font-size: 11px; color: #889; margin-bottom: 4px; padding: 4px 8px;
+              background: #0c0c18; border: 1px solid #223; border-radius: 3px; overflow-x: auto; }
+  .subtitle .katex { font-size: 0.9em; }
   .canvas-row { display: flex; gap: 8px; margin-bottom: 8px; justify-content: center; }
   .canvas-wrap { display: flex; flex-direction: column; align-items: center; position: relative; }
   .canvas-wrap label { font-size: 11px; color: #99aacc; margin-bottom: 3px; }
   canvas { display: block; cursor: crosshair; border: 1px solid #333355; }
-  .carpet-canvas { position: relative; }
   .bottom-row { display: flex; gap: 8px; margin-bottom: 8px; justify-content: center; width: 100%; }
   #sliceCanvas { border: 1px solid #333355; }
   #infoPanel { border: 1px solid #333355; padding: 6px 12px; background: #0e0e1a; width: 100%; font-size: 11px; line-height: 1.4; }
-  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1px 16px; }
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px 16px; }
   .info-section { display: contents; }
   .info-head { grid-column: 1 / -1; font-weight: bold; color: #aaccff; margin-top: 4px; font-size: 11px; }
   .info-kv { display: flex; gap: 4px; white-space: nowrap; }
@@ -33,22 +35,21 @@
   .slider-row { display: flex; align-items: center; gap: 6px; }
   .slider-row label { width: 160px; font-size: 12px; color: #ccccdd; text-align: right; }
   .slider-row input[type=range] { flex: 1; accent-color: #5588ff; }
-  .slider-row input[type=number] { flex: 1; background: #0e0e1a; border: 1px solid #446; color: #ffcc88; font-family: 'Consolas', monospace; font-size: 12px; padding: 2px 4px; border-radius: 3px; min-width: 0; }
+  .slider-row input[type=number] { flex: 1; background: #0e0e1a; border: 1px solid #446; color: #ffcc88;
+    font-family: 'Consolas', monospace; font-size: 12px; padding: 2px 4px; border-radius: 3px; min-width: 0; }
   .slider-row input[type=number]:focus { outline: none; border-color: #5588ff; }
   .slider-row span { width: 55px; text-align: right; font-size: 12px; color: #ffcc88; }
   .slider-row .unit { width: 28px; text-align: left; font-size: 11px; color: #8899aa; padding-left: 2px; }
   .btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0; }
-  button {
-    background: #1a1a2e; border: 1px solid #446; color: #ccddff;
-    padding: 4px 10px; cursor: pointer; font-size: 12px; border-radius: 3px;
-  }
+  button { background: #1a1a2e; border: 1px solid #446; color: #ccddff;
+    padding: 4px 10px; cursor: pointer; font-size: 12px; border-radius: 3px; }
   button:hover { background: #2a2a4e; border-color: #668; }
+  button.active { background: #2a3a5e; border-color: #88aaff; color: #aaccff; }
   #statusLine { text-align: center; margin-top: 8px; font-size: 12px; color: #88aacc; }
   #resetBtn { background: #2a1a1a; border-color: #644; color: #ffbbbb; }
   #resetBtn:hover { background: #3a2a2a; }
-  .fresnel-warn { color: #ff6644; font-weight: bold; }
-  .fresnel-ok   { color: #44cc88; }
-  .fresnel-marginal { color: #ffcc44; }
+  .wigner-badge { display: inline-block; padding: 1px 5px; background: #1a2a1a; border: 1px solid #3a6a3a;
+    border-radius: 3px; color: #88cc88; font-size: 10px; margin-left: 4px; }
   #contrastDisplay { display: flex; gap: 14px; justify-content: center; margin-top: 4px; font-size: 11px; font-family: 'Consolas', monospace; }
   .contrast-item { display: flex; align-items: center; gap: 5px; }
   .contrast-swatch { width: 14px; height: 3px; border-radius: 1px; flex-shrink: 0; }
@@ -57,16 +58,19 @@
 </style>
 </head>
 <body>
-<h2>Gaussian-Schell Model — Talbot Carpet Explorer</h2>
+<h2>Wigner–GSM Talbot Carpet Explorer <span class="wigner-badge">exact propagation</span></h2>
+
 <div class="subtitle">
 \[
-I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
-\;\underbrace{\exp\!\left[i\frac{2\pi}{d}\!\left(p+\frac{qz}{R(L)}\right)x
-+ i\pi\frac{\lambda z}{d^2}pq\!\left(1+\frac{z}{R(L)}\right)\right]}_{\text{fringe phase + Talbot phase}}
-\;\underbrace{\exp\!\left[-\frac{p\lambda z}{2\sigma_I^2(L)d}x
--\frac{(p^2+q^2)\lambda^2 z^2}{8\sigma_I^2(L)d^2}\right]}_{\text{intensity envelope}}
-\;\underbrace{\exp\!\left[-\frac{q^2\lambda^2 z^2}{2\sigma_c^2(L)d^2}\right]}_{\text{coherence filter}}
-\;\cdot e^{-x^2/2\sigma_I^2(L)}
+I(x,\zeta) = \frac{1}{\sqrt{\hat{A}}} \sum_{m,n} a_m a_n
+\;\underbrace{e^{-\frac{A_0\,\bar{x}_{mn}^2}{2\hat{A}\sigma_I^2}}}_{\text{spreading envelope}}
+\;\underbrace{e^{-\frac{4\pi^2(m-n)^2\zeta^2}{\hat{A}}}}_{\text{coherence decay}}
+\;\underbrace{e^{\,2\pi i(m-n)\bar{x}_{mn}\cdot A_0/\hat{A}}}_{\text{fading fringe}}
+\qquad
+\bar{x}_{mn}=\tfrac{x}{d}-(m+n)\zeta,\quad
+\hat{A}=\tfrac{2\zeta^2}{\sigma_I^2}+A_0,\quad
+A_0=\tfrac{\pi^2}{\tilde\Delta_v},\quad
+\tilde\Delta_v=\tfrac{1}{8\sigma_I^2}+\tfrac{1}{2\sigma_c^2}
 \]
 </div>
 
@@ -76,7 +80,7 @@ I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
     <canvas id="cohCanvas" width="340" height="300" class="carpet-canvas"></canvas>
   </div>
   <div class="canvas-wrap">
-    <label>GSM (partial coherence)</label>
+    <label>GSM — Wigner exact propagation</label>
     <canvas id="gsmCanvas" width="340" height="300" class="carpet-canvas"></canvas>
   </div>
   <div class="canvas-wrap">
@@ -84,7 +88,7 @@ I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
     <canvas id="sliceCanvas" width="340" height="300"></canvas>
     <div id="contrastDisplay">
       <div class="contrast-item"><div class="contrast-swatch" style="background:#50c0b0"></div><span class="contrast-label">Coherent</span><span class="contrast-value" id="cv_coh">—</span></div>
-      <div class="contrast-item"><div class="contrast-swatch" style="background:#e08030"></div><span class="contrast-label">GSM</span><span class="contrast-value" id="cv_gsm">—</span></div>
+      <div class="contrast-item"><div class="contrast-swatch" style="background:#e08030"></div><span class="contrast-label">Wigner–GSM</span><span class="contrast-value" id="cv_gsm">—</span></div>
     </div>
   </div>
 </div>
@@ -97,7 +101,7 @@ I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
 
 <div class="controls">
   <div class="ctrl-col">
-    <h3>Grating &amp; Source</h3>
+    <h3>Grating &amp; Source (at grating plane)</h3>
     <div class="slider-row"><label>f (duty cycle)</label><input type="range" id="sl_f" min="0.05" max="0.95" step="0.01" value="0.5"><span id="v_f">0.50</span></div>
     <div class="slider-row"><label>M (harmonics)</label><input type="range" id="sl_M" min="1" max="25" step="1" value="8"><span id="v_M">8</span></div>
     <div class="slider-row"><label>σ_I(0)/d</label><input type="range" id="sl_sI0" min="0.3" max="30" step="0.1" value="0.5"><span id="v_sI0">0.50</span></div>
@@ -133,7 +137,6 @@ I(x,L+z) = I_L \sum_{p,q} a_{\frac{q+p}{2}} a_{\frac{q-p}{2}}
 <script>
 // ── Colormaps ──────────────────────────────────────────────────────────────────
 function makeColormap(stops) {
-  // stops: [[t, r, g, b], ...]
   return function(v) {
     if (v <= 0) return stops[0].slice(1);
     if (v >= 1) return stops[stops.length-1].slice(1);
@@ -157,155 +160,202 @@ const inferno = makeColormap([
 
 // ── Worker blob ───────────────────────────────────────────────────────────────
 const WORKER_SRC = `
-const TWO_PI = 2*Math.PI;
+const TWO_PI = 2 * Math.PI;
+const PI2    = Math.PI * Math.PI;
 
 function sinc(x) {
   if (Math.abs(x) < 1e-12) return 1.0;
-  return Math.sin(Math.PI*x) / (Math.PI*x);
+  return Math.sin(Math.PI * x) / (Math.PI * x);
 }
 
+// Grating Fourier coefficients a_m = f·sinc(m·f), index 0 = m=-M
 function gratingCoeffs(M, f) {
-  const am = new Array(2*M+1);
-  for (let k = 0; k <= 2*M; k++) {
-    const m = k - M;
-    am[k] = f * sinc(m * f);
-  }
-  return am; // index 0 = m=-M
+  const am = new Float64Array(2*M+1);
+  for (let k = 0; k <= 2*M; k++) am[k] = f * sinc((k - M) * f);
+  return am;
 }
 
+// Propagate GSM beam from z=0 to z=L (all in normalised units, lengths in d)
+// Returns sIL, sCL (sigma_I, sigma_c at grating), rho (normalised R / z_T)
 function gsmPropagate(sI0, sc0, LNorm, invR0) {
   const sc0sq = Math.max(sc0*sc0, 1e-40);
-  const pd = 1.0/(4.0*sI0*sI0) + 1.0/sc0sq;
-  let sILsq = sI0*sI0*(1 - (LNorm*invR0)*(LNorm*invR0)) + LNorm*LNorm*pd/(Math.PI*Math.PI);
+  const pd    = 1.0/(4.0*sI0*sI0) + 1.0/sc0sq;
+  let sILsq   = sI0*sI0*(1 - (LNorm*invR0)*(LNorm*invR0)) + LNorm*LNorm*pd/PI2;
   sILsq = Math.max(sILsq, 1e-12);
-  let sCLsq = Math.max(sc0sq * sILsq / (sI0*sI0), 1e-12);
-  let rho;
-  if (LNorm > 1e-12) {
-    rho = Math.PI*Math.PI * sILsq / (LNorm * pd);
-  } else {
-    rho = Infinity;
-  }
+  const sCLsq = Math.max(sc0sq * sILsq / (sI0*sI0), 1e-12);
+  const rho   = (LNorm > 1e-12) ? PI2 * sILsq / (LNorm * pd) : Infinity;
   return { sIL: Math.sqrt(sILsq), sCL: Math.sqrt(sCLsq), rho };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main computation
+// ─────────────────────────────────────────────────────────────────────────────
 function computeCarpet(M, f, sI0, sc0, LNorm, invR0, NZ, NX, xiHalf, xCenter, zmin, zmax) {
+
   const am = gratingCoeffs(M, f);
   const { sIL, sCL, rho } = gsmPropagate(sI0, sc0, LNorm, invR0);
-  const rhoEff = (!isFinite(rho) || Math.abs(rho) < 1e-8) ? 1e18 : rho;
 
   const dx = 2*xiHalf / (NX-1);
   const dz = (zmax - zmin) / (NZ-1);
   const x0 = xCenter - xiHalf;
 
-  // Build index list: m from -M to M, n from -M to M, skip duplicates by pairs
-  // We'll do full double sum for GSM, and single sum for coherent
-
-  // Coherent carpet: NZ x NX complex sum
   const cohArr = new Float32Array(NZ * NX);
   const gsmArr = new Float32Array(NZ * NX);
 
-  for (let iz = 0; iz < NZ; iz++) {
-    const zeta = zmin + iz * dz; // z/z_T normalised
-    const uz = 1.0 + zeta / rhoEff;
+  // ── Coherent carpet: single sum over m, then |E|² ─────────────────────────
+  // Uses curvature via rhoEff so this panel stays physically correct.
+  const rhoEff = (!isFinite(rho) || Math.abs(rho) < 1e-8) ? 1e18 : rho;
 
-    // --- Coherent: E = sum_m a_m * exp(i*2pi*m^2*uz*zeta) * exp(i*2pi*m*uz*x)
-    // For each x, accumulate complex E
-    // Use "complex stepping" trick: for each m, step phasor by exp(i*2pi*m*uz*dx) each x step
+  for (let iz = 0; iz < NZ; iz++) {
+    const zeta = zmin + iz * dz;
+    const uz   = 1.0 + zeta / rhoEff;   // (1 + ζ/ρ) curvature factor
     const cohRe = new Float64Array(NX);
     const cohIm = new Float64Array(NX);
 
     for (let k = 0; k <= 2*M; k++) {
       const m = k - M;
       const a = am[k];
-      // phase at x0
-      const phiZ = TWO_PI * m * m * uz * zeta;
+      // Phase: 2π m² uz ζ  (Talbot + curvature) + 2π m uz x  (fringe)
+      const phiZ  = TWO_PI * m * m * uz * zeta;
       const phiX0 = TWO_PI * m * uz * x0;
       let pRe = Math.cos(phiZ + phiX0) * a;
       let pIm = Math.sin(phiZ + phiX0) * a;
       const stepAngle = TWO_PI * m * uz * dx;
-      const stepRe = Math.cos(stepAngle);
-      const stepIm = Math.sin(stepAngle);
+      const stepRe = Math.cos(stepAngle), stepIm = Math.sin(stepAngle);
       for (let ix = 0; ix < NX; ix++) {
         cohRe[ix] += pRe;
         cohIm[ix] += pIm;
-        // multiply by step
         const nr = pRe*stepRe - pIm*stepIm;
         const ni = pRe*stepIm + pIm*stepRe;
         pRe = nr; pIm = ni;
       }
     }
-    for (let ix = 0; ix < NX; ix++) {
+    for (let ix = 0; ix < NX; ix++)
       cohArr[iz*NX + ix] = cohRe[ix]*cohRe[ix] + cohIm[ix]*cohIm[ix];
+  }
+
+  // ── Wigner–GSM carpet: exact phase-space propagation ─────────────────────
+  //
+  // All lengths normalised to grating period d;  ζ = λz/(2d²).
+  //
+  // I(x,ζ) = (1/√Â) Σ_{m,n} a_m a_n
+  //            · exp[ -A₀ x̄²_{mn} / (2Â σ_I²) ]      ← spreading envelope
+  //            · exp[ -4π²(m-n)² ζ² / Â ]             ← coherence decay
+  //            · Re exp[ 2πi(m-n) x̄_{mn} · A₀/Â ]    ← fading fringe
+  //
+  // x̄_{mn} = x - (m+n)ζ
+  // Â(ζ)   = 2ζ²/σ_I² + A₀
+  // A₀     = π²/Δ̃_v       (= Â at ζ=0, sets coherence length scale)
+  // Δ̃_v   = 1/(8σ_I²) + 1/(2σ_c²)   (phase-space width)
+  //
+  // Caching strategy:
+  //   Setup:     (m,n) pairs with p=m-n, q=m+n sorted; grating coefficients
+  //   Per-row:   Â, A₀/Â (= fringe factor F), 1/(2Σ²) (= envelope width coeff)
+  //              D(p)  = exp(-4π²p²ζ²/Â)      for p in [-2M..2M]  (4M+1 values)
+  //              G_q[] = exp(-½ (x-qζ)² /Σ²)  for q in [-2M..2M]  (4M+1 arrays)
+  //   Per-pair:  Bamp = a_m·a_n·D(p),  phasor step (cheap, O(1))
+  //   Per-pixel: one multiply-add + phasor multiply (no exp)
+
+  const sI2  = sIL * sIL;
+  const sC2  = Math.max(sCL * sCL, 1e-40);
+
+  // Phase-space width  Δ̃_v  (normalised, d=1)
+  const DeltaV = 1.0/(8.0*sI2) + 1.0/(2.0*sC2);
+  // A₀ = π²/Δ̃_v
+  const A0     = PI2 / DeltaV;
+
+  // Pre-build pair list sorted by q (maximises Gaussian cache hits in inner loop)
+  const pairs = [];
+  for (let m = -M; m <= M; m++) {
+    for (let n = -M; n <= M; n++) {
+      const amn = am[m+M] * am[n+M];
+      if (Math.abs(amn) < 1e-15) continue;
+      pairs.push({ p: m-n, q: m+n, amn });
     }
+  }
+  pairs.sort((a, b) => a.q - b.q || a.p - b.p);
 
-    // --- GSM: double sum over (m, n)
-    // I[x] = env[x] * Re[ sum_{m,n} B(m,n) * exp(phi(m,n)*x) ]
-    // env[x] = exp(-x^2 / (2*sIL^2))
-    // B = a_m*a_n * exp(i*2pi*(m^2-n^2)*zeta*(1+zeta/rhoEff)) * exp(-(m^2+n^2)*zeta^2/(4*sIL^2)) * exp(-(m-n)^2*zeta^2/(2*sCL^2))
-    // phi = i*2pi*(m-n)*(1+zeta/rhoEff) + (m+n)*zeta/(2*sIL^2)
+  // Pre-allocate reusable per-row buffers
+  const decayByP  = new Float64Array(4*M+1);   // D(p), indexed p + 2M
+  // Gaussian cache: one array per q value, indexed q + 2M
+  const gaussByQ  = new Array(4*M+1);
+  for (let qi = 0; qi < 4*M+1; qi++) gaussByQ[qi] = new Float64Array(NX);
+  const row       = new Float64Array(NX);
 
-    const gsmRe = new Float64Array(NX);
-    const sIL2 = sIL*sIL;
-    const sCL2 = sCL*sCL;
+  // Precompute x-values (avoid recomputing inside row loop)
+  const xArr = new Float64Array(NX);
+  for (let ix = 0; ix < NX; ix++) xArr[ix] = x0 + ix*dx;
 
-    for (let km = 0; km <= 2*M; km++) {
-      const m = km - M;
-      for (let kn = 0; kn <= 2*M; kn++) {
-        const n = kn - M;
-        const amn = am[km] * am[kn];
-        if (Math.abs(amn) < 1e-15) continue;
+  for (let iz = 0; iz < NZ; iz++) {
+    const zeta  = zmin + iz * dz;
+    const zeta2 = zeta * zeta;
 
-        const Bamp = amn
-          * Math.exp(-(m*m + n*n)*zeta*zeta / sIL2)
-          * Math.exp(-2.0*(m+n)*(m+n)*zeta*zeta / sCL2);
-        if (Math.abs(Bamp) < 1e-30) continue;
+    // ── Per-row scalars ────────────────────────────────────────────────────
+    const Ahat     = 2.0*zeta2/sI2 + A0;   // Â(ζ)
+    const invAhat  = 1.0 / Ahat;
+    const F        = A0 * invAhat;           // fringe factor  A₀/Â ∈ (0,1]
+    // Envelope:  exp( -½ (x - qζ)² / Σ² )   where  Σ² = Â·σ_I² / A₀
+    const invEnv2  = A0 / (2.0 * Ahat * sI2);  // = 1/(2Σ²)
+    const scale    = 1.0 / Math.sqrt(Ahat);
 
-        const BphaseAngle = TWO_PI * (m*m - n*n) * zeta * (1 + zeta/rhoEff);
-        const BRe = Bamp * Math.cos(BphaseAngle);
-        const BIm = Bamp * Math.sin(BphaseAngle);
+    // ── Per-row p-cache: coherence decay D(p) ─────────────────────────────
+    const k4p = 4.0*PI2 * zeta2 * invAhat;   // 4π²ζ²/Â
+    for (let p = -2*M; p <= 2*M; p++)
+      decayByP[p + 2*M] = Math.exp(-k4p * p*p);
 
-        // phi = i*2pi*(m-n)*(1+zeta/rhoEff) + (m+n)*zeta/(2*sIL^2)
-        const phiRe = -(m-n)*zeta / sIL2;
-        const phiIm = TWO_PI * ((m-n) + (m+n)*zeta/rhoEff);
-
-        // At x0: exp(phi*x0)
-        const ang0 = phiIm * x0;
-        const expX0Re = Math.exp(phiRe * x0) * Math.cos(ang0);
-        const expX0Im = Math.exp(phiRe * x0) * Math.sin(ang0);
-
-        // step: exp(phi*dx)
-        const stepMag = Math.exp(phiRe * dx);
-        const stepAng = phiIm * dx;
-        const stepRe2 = stepMag * Math.cos(stepAng);
-        const stepIm2 = stepMag * Math.sin(stepAng);
-
-        let pRe = expX0Re, pIm = expX0Im;
-        for (let ix = 0; ix < NX; ix++) {
-          // contribution = Re[(BRe + i*BIm) * (pRe + i*pIm)]
-          gsmRe[ix] += BRe*pRe - BIm*pIm;
-          const nr = pRe*stepRe2 - pIm*stepIm2;
-          const ni = pRe*stepIm2 + pIm*stepRe2;
-          pRe = nr; pIm = ni;
-        }
+    // ── Per-row q-cache: shifted Gaussian envelope arrays ─────────────────
+    for (let q = -2*M; q <= 2*M; q++) {
+      const qZ = q * zeta;
+      const G  = gaussByQ[q + 2*M];
+      for (let ix = 0; ix < NX; ix++) {
+        const dxq = xArr[ix] - qZ;
+        G[ix] = Math.exp(-invEnv2 * dxq * dxq);
       }
     }
 
-    // Apply envelope
-    for (let ix = 0; ix < NX; ix++) {
-      const x = x0 + ix*dx;
-      const env = Math.exp(-x*x/(2*sIL2));
-      gsmArr[iz*NX + ix] = Math.max(0, env * gsmRe[ix]);
+    // ── Accumulate contributions ───────────────────────────────────────────
+    row.fill(0);
+
+    for (const { p, q, amn } of pairs) {
+      const D    = decayByP[p + 2*M];
+      const Bamp = amn * D;
+      if (Math.abs(Bamp) < 1e-25) continue;
+
+      const G    = gaussByQ[q + 2*M];
+      const qZ   = q * zeta;
+
+      // Fringe phasor:  exp( 2πi · p · F · (x - qζ) )
+      // = exp( 2πi · p · F · x̄_{mn} )
+      // Step over x using phasor multiplication (no exp inside pixel loop)
+      const phi0   = TWO_PI * p * F * (x0 - qZ);   // angle at x = x0
+      const dPhi   = TWO_PI * p * F * dx;            // angle step per pixel
+      const stepRe = Math.cos(dPhi);
+      const stepIm = Math.sin(dPhi);
+      let pRe = Math.cos(phi0);
+      let pIm = Math.sin(phi0);
+
+      for (let ix = 0; ix < NX; ix++) {
+        // Real part of  Bamp · G[ix] · e^{i·phase}  → accumulate
+        row[ix] += Bamp * G[ix] * pRe;
+        const nr = pRe*stepRe - pIm*stepIm;
+        const ni = pRe*stepIm + pIm*stepRe;
+        pRe = nr; pIm = ni;
+      }
     }
+
+    // Apply 1/√Â prefactor and clamp negative values (numerical noise)
+    for (let ix = 0; ix < NX; ix++)
+      gsmArr[iz*NX + ix] = Math.max(0, scale * row[ix]);
   }
 
-  return { cohArr, gsmArr, sIL, sCL, rho };
+  return { cohArr, gsmArr, sIL, sCL, rho, A0, DeltaV };
 }
 
 self.onmessage = function(e) {
   const { M, f, sI0, sc0, LNorm, invR0, NZ, NX, xiHalf, xCenter, zmin, zmax } = e.data;
-  const t0 = Date.now();
+  const t0     = Date.now();
   const result = computeCarpet(M, f, sI0, sc0, LNorm, invR0, NZ, NX, xiHalf, xCenter, zmin, zmax);
-  const dt = Date.now() - t0;
+  const dt     = Date.now() - t0;
   self.postMessage({ ...result, dt,
     cohArr: result.cohArr.buffer, gsmArr: result.gsmArr.buffer
   }, [result.cohArr.buffer, result.gsmArr.buffer]);
@@ -313,22 +363,22 @@ self.onmessage = function(e) {
 `;
 
 const workerBlob = new Blob([WORKER_SRC], {type: 'application/javascript'});
-const workerURL = URL.createObjectURL(workerBlob);
-let worker = new Worker(workerURL);
+const workerURL  = URL.createObjectURL(workerBlob);
+let worker       = new Worker(workerURL);
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const NX = 1024, NZ = 400;
 const DEFAULTS = {
   f: 0.5, M: 8, sI0: 0.5, sc0: 0.5, invR0: 0,
   zmin: 0, zmax: 1.5, zsl: 1.0, xcen: 0, xiHalf: 10, LNorm: 1.0,
-  lambda_nm: 1.6, d_nm: 100  // physical wavelength and grating period in nm
+  lambda_nm: 1.6, d_nm: 100
 };
-let state = {...DEFAULTS};
-let lastResult = null;
-let lastContrasts = {coh: null, gsm: null};
-let computing = false;
+let state          = {...DEFAULTS};
+let lastResult     = null;
+let lastContrasts  = {coh: null, gsm: null};
+let computing      = false;
 let pendingCompute = false;
-let lastPhysicsState = null; // for cache invalidation
+let lastPhysicsKey = null;
 
 function getPhysicsKey(s) {
   return `${s.f}|${s.M}|${s.sI0}|${s.sc0}|${s.invR0}|${s.LNorm}|${s.zmin}|${s.zmax}|${s.xiHalf}|${s.xcen}`;
@@ -336,36 +386,32 @@ function getPhysicsKey(s) {
 
 // ── Slider wiring ─────────────────────────────────────────────────────────────
 const sliders = {
-  f: ['sl_f','v_f', v=>v.toFixed(2)],
-  M: ['sl_M','v_M', v=>v.toFixed(0)],
-  sI0: ['sl_sI0','v_sI0', v=>v.toFixed(2)],
-  sc0: ['sl_sc0','v_sc0', v=>v.toFixed(2)],
-  invR0: ['sl_invR0','v_invR0', v=>v.toFixed(3)],
-  zmin: ['sl_zmin','v_zmin', v=>v.toFixed(1)],
-  zmax: ['sl_zmax','v_zmax', v=>v.toFixed(1)],
-  zsl: ['sl_zsl','v_zsl', v=>v.toFixed(2)],
-  xcen: ['sl_xcen','v_xcen', v=>v.toFixed(0)],
+  f:     ['sl_f',    'v_f',    v => v.toFixed(2)],
+  M:     ['sl_M',    'v_M',    v => v.toFixed(0)],
+  sI0:   ['sl_sI0',  'v_sI0',  v => v.toFixed(2)],
+  sc0:   ['sl_sc0',  'v_sc0',  v => v.toFixed(2)],
+  invR0: ['sl_invR0','v_invR0',v => v.toFixed(3)],
+  zmin:  ['sl_zmin', 'v_zmin', v => v.toFixed(1)],
+  zmax:  ['sl_zmax', 'v_zmax', v => v.toFixed(1)],
+  zsl:   ['sl_zsl',  'v_zsl',  v => v.toFixed(2)],
+  xcen:  ['sl_xcen', 'v_xcen', v => v.toFixed(0)],
 };
 
-// Physical parameter inputs (λ and d in nm)
 document.getElementById('in_lam').addEventListener('input', function() {
   const v = parseFloat(this.value);
-  if (v > 0) { state.lambda_nm = v; if (lastResult) renderAll(false); }
+  if (v > 0) { state.lambda_nm = v; if (lastResult) renderAll(); }
 });
 document.getElementById('in_d').addEventListener('input', function() {
   const v = parseFloat(this.value);
-  if (v > 0) { state.d_nm = v; if (lastResult) renderAll(false); }
+  if (v > 0) { state.d_nm = v; if (lastResult) renderAll(); }
 });
 
-// Helper: λ/d ratio
-function getLod() { return state.lambda_nm / state.d_nm; }
-
-// Helper: format a length in nm with auto-scaling units
-function fmtLen(nm) {
-  if (nm >= 1e6) return (nm / 1e6).toFixed(3) + ' mm';
-  if (nm >= 1e3) return (nm / 1e3).toPrecision(4) + ' µm';
-  if (nm >= 1)   return nm.toPrecision(4) + ' nm';
-  return (nm * 1e3).toPrecision(3) + ' pm';
+function getLod()    { return state.lambda_nm / state.d_nm; }
+function fmtLen(nm)  {
+  if (nm >= 1e6) return (nm/1e6).toFixed(3)+' mm';
+  if (nm >= 1e3) return (nm/1e3).toPrecision(4)+' µm';
+  if (nm >= 1)   return nm.toPrecision(4)+' nm';
+  return (nm*1e3).toPrecision(3)+' pm';
 }
 
 for (const [key, [sid, vid, fmt]] of Object.entries(sliders)) {
@@ -374,29 +420,23 @@ for (const [key, [sid, vid, fmt]] of Object.entries(sliders)) {
   sl.addEventListener('input', () => {
     state[key] = parseFloat(sl.value);
     vl.textContent = fmt(state[key]);
-    if (key === 'zsl') {
-      if (lastResult) renderAll(false);
-    } else {
-      scheduleCompute();
-    }
+    if (key === 'zsl') { if (lastResult) renderAll(); }
+    else               { scheduleCompute(); }
   });
 }
 
-// L buttons
 document.getElementById('lBtns').querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => {
     const L = parseFloat(btn.dataset.l);
     state.LNorm = L;
     document.querySelectorAll('#lBtns button').forEach(b => b.classList.toggle('active', b === btn));
-    const zmax = Math.round(L * 1.5 * 2) / 2; // round to 0.5
     setSlider('zmin', 0);
-    setSlider('zmax', Math.max(0.1, zmax));
+    setSlider('zmax', Math.max(0.1, Math.round(L * 1.5 * 2) / 2));
     setSlider('zsl', L);
     scheduleCompute();
   });
 });
 
-// xi buttons
 document.getElementById('xiBtns').querySelectorAll('button').forEach(btn => {
   btn.addEventListener('click', () => {
     state.xiHalf = parseFloat(btn.dataset.xi);
@@ -413,12 +453,12 @@ document.getElementById('resetBtn').addEventListener('click', () => {
       document.getElementById(vid).textContent = fmt(DEFAULTS[key]);
     }
   }
-  state.xiHalf = DEFAULTS.xiHalf;
-  state.LNorm = DEFAULTS.LNorm;
+  state.xiHalf    = DEFAULTS.xiHalf;
+  state.LNorm     = DEFAULTS.LNorm;
   state.lambda_nm = DEFAULTS.lambda_nm;
-  state.d_nm = DEFAULTS.d_nm;
+  state.d_nm      = DEFAULTS.d_nm;
   document.getElementById('in_lam').value = DEFAULTS.lambda_nm;
-  document.getElementById('in_d').value = DEFAULTS.d_nm;
+  document.getElementById('in_d').value   = DEFAULTS.d_nm;
   document.querySelectorAll('#lBtns button').forEach(b =>
     b.classList.toggle('active', parseFloat(b.dataset.l) === DEFAULTS.LNorm));
   document.querySelectorAll('#xiBtns button').forEach(b =>
@@ -426,7 +466,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   scheduleCompute();
 });
 
-// Highlight default buttons on load
+// Init button highlights
 document.querySelectorAll('#lBtns button').forEach(b =>
   b.classList.toggle('active', parseFloat(b.dataset.l) === DEFAULTS.LNorm));
 document.querySelectorAll('#xiBtns button').forEach(b =>
@@ -439,34 +479,28 @@ function setSlider(key, val) {
   document.getElementById(vid).textContent = fmt(val);
 }
 
-// Carpet canvas click → move slice
+// Click carpet → move slice
 ['cohCanvas','gsmCanvas'].forEach(id => {
-  document.getElementById(id).addEventListener('click', (e) => {
-    const canvas = e.target;
-    const rect = canvas.getBoundingClientRect();
-    const fracY = 1 - (e.clientY - rect.top) / rect.height; // 0=bottom, 1=top
-    const zval = state.zmin + fracY * (state.zmax - state.zmin);
-    const clamped = Math.max(0, Math.min(800, parseFloat(zval.toFixed(2))));
-    setSlider('zsl', clamped);
-    if (lastResult) renderAll(false);
+  document.getElementById(id).addEventListener('click', e => {
+    const rect  = e.target.getBoundingClientRect();
+    const fracY = 1 - (e.clientY - rect.top) / rect.height;
+    const zval  = state.zmin + fracY * (state.zmax - state.zmin);
+    setSlider('zsl', Math.max(0, Math.min(800, parseFloat(zval.toFixed(2)))));
+    if (lastResult) renderAll();
   });
 });
 
-// ── Compute ───────────────────────────────────────────────────────────────────
+// ── Compute scheduling ────────────────────────────────────────────────────────
 function scheduleCompute() {
   if (computing) { pendingCompute = true; return; }
   doCompute();
 }
 
 function doCompute() {
-  computing = true;
+  computing      = true;
   pendingCompute = false;
   const key = getPhysicsKey(state);
-  if (key === lastPhysicsState && lastResult) {
-    computing = false;
-    renderAll(false);
-    return;
-  }
+  if (key === lastPhysicsKey && lastResult) { computing = false; renderAll(); return; }
   document.getElementById('statusLine').textContent = 'Computing…';
   worker.postMessage({
     M: state.M, f: state.f, sI0: state.sI0, sc0: state.sc0,
@@ -477,173 +511,95 @@ function doCompute() {
   });
 }
 
-worker.onerror = function(e) {
+worker.onerror = e => {
   computing = false;
   document.getElementById('statusLine').textContent = 'Worker error: ' + e.message;
-  console.error('Worker error', e);
 };
 
-worker.onmessage = function(e) {
-  const { cohArr: cohBuf, gsmArr: gsmBuf, sIL, sCL, rho, dt } = e.data;
+worker.onmessage = e => {
+  const { cohArr: cohBuf, gsmArr: gsmBuf, sIL, sCL, rho, A0, DeltaV, dt } = e.data;
   lastResult = {
-    coh: new Float32Array(cohBuf),
-    gsm: new Float32Array(gsmBuf),
-    sIL, sCL, rho,
+    coh: new Float32Array(cohBuf), gsm: new Float32Array(gsmBuf),
+    sIL, sCL, rho, A0, DeltaV,
     zmin: state.zmin, zmax: state.zmax,
     xiHalf: state.xiHalf, xcen: state.xcen
   };
-  lastPhysicsState = getPhysicsKey(state);
-  computing = false;
+  lastPhysicsKey = getPhysicsKey(state);
+  computing      = false;
   document.getElementById('statusLine').textContent = `Done (${dt} ms)`;
-  renderAll(true);
+  renderAll();
   if (pendingCompute) doCompute();
 };
 
-// ── Fresnel validity ──────────────────────────────────────────────────────────
-// The Fresnel approx uses k_z ≈ k - πm²λ/(d²) * ... dropping the m⁴ term.
-// That term is: π m⁴ λ³ z / (4 d⁴).
-// In normalised units ζ = z/z_T (z_T = 2d²/λ):
-//   error_term = π M⁴ (λ/d)² ζ / 2
-// threshold: error_term < εF → ζ < ζ_thresh = 2 εF / (π M⁴ (λ/d)²)
-function fresnelThreshold(M, lod, eps) {
-  // eps: acceptable fraction (e.g. 0.1 = 10%)
-  const M4 = M * M * M * M;
-  return 2.0 * eps / (Math.PI * M4 * lod * lod);
-}
-
 // ── Rendering ─────────────────────────────────────────────────────────────────
-function applyColormap(val, cmap) { return cmap(val); }
-
 function renderCarpet(canvasId, data, cmap, useSqrt) {
   const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext('2d');
+  const ctx    = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const img = ctx.createImageData(W, H);
-  const d = img.data;
+  const img    = ctx.createImageData(W, H);
+  const px     = img.data;
 
-  // find min/max
   let mn = Infinity, mx = -Infinity;
   for (let i = 0; i < data.length; i++) {
     if (data[i] < mn) mn = data[i];
     if (data[i] > mx) mx = data[i];
   }
-  const range = mx - mn || 1;
+  const range  = mx - mn || 1;
+  const zmin   = lastResult.zmin, zmax = lastResult.zmax;
 
-  const zmin = lastResult.zmin, zmax = lastResult.zmax;
-
-  // Fresnel thresholds (marginal ε=0.1, broken ε=1.0)
-  const lod = getLod();
-  const zetaMarginal = fresnelThreshold(state.M, lod, 0.1);
-  const zetaBroken   = fresnelThreshold(state.M, lod, 1.0);
-
-  // data is NZ rows (bottom=zmin) x NX cols
-  // canvas: row 0 = top = zmax
   for (let row = 0; row < H; row++) {
-    const iz = Math.floor((H - 1 - row) / (H - 1) * (NZ - 1));
-    const zeta = zmin + (iz / (NZ - 1)) * (zmax - zmin);
-    // Fresnel tint: 0=ok, 1=marginal, 2=broken
-    const fresnelLevel = zeta > zetaBroken ? 2 : zeta > zetaMarginal ? 1 : 0;
+    const iz    = Math.floor((H-1-row) / (H-1) * (NZ-1));
     for (let col = 0; col < W; col++) {
-      const ix = Math.floor(col / (W - 1) * (NX - 1));
-      let v = (data[iz * NX + ix] - mn) / range;
+      const ix = Math.floor(col / (W-1) * (NX-1));
+      let v = (data[iz*NX + ix] - mn) / range;
       if (useSqrt) v = Math.sqrt(Math.max(0, v));
-      let [r,g,b] = cmap(v);
-      // Blend in red tint proportional to violation severity
-      if (fresnelLevel === 1) {
-        // marginal: slight orange tint
-        r = Math.min(255, Math.round(r * 0.7 + 180 * 0.3));
-        g = Math.min(255, Math.round(g * 0.7 + 80  * 0.3));
-        b = Math.min(255, Math.round(b * 0.7 + 0   * 0.3));
-      } else if (fresnelLevel === 2) {
-        // broken: strong red tint
-        r = Math.min(255, Math.round(r * 0.4 + 200 * 0.6));
-        g = Math.min(255, Math.round(g * 0.4 + 20  * 0.6));
-        b = Math.min(255, Math.round(b * 0.4 + 20  * 0.6));
-      }
-      const idx = (row * W + col) * 4;
-      d[idx] = r; d[idx+1] = g; d[idx+2] = b; d[idx+3] = 255;
+      const [r,g,b] = cmap(v);
+      const idx = (row*W + col)*4;
+      px[idx]=r; px[idx+1]=g; px[idx+2]=b; px[idx+3]=255;
     }
   }
   ctx.putImageData(img, 0, 0);
 
-  // Draw Fresnel boundary lines on canvas
-  function drawFresnelLine(zetaLine, color, label) {
-    if (zetaLine < zmin || zetaLine > zmax) return;
-    const frac = (zetaLine - zmin) / (zmax - zmin);
-    const lineY = Math.round((1 - frac) * (H - 1));
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    ctx.moveTo(0, lineY);
-    ctx.lineTo(W, lineY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = color;
-    ctx.font = '9px Consolas';
-    ctx.textAlign = 'left';
-    ctx.fillText(label, 3, lineY - 2);
-    ctx.restore();
-  }
-  drawFresnelLine(zetaMarginal, 'rgba(255,200,50,0.9)',  'Fresnel 10%');
-  drawFresnelLine(zetaBroken,   'rgba(255,60,40,0.9)',   'Fresnel 100%');
-
-  // Draw h-line for slice
-  const zsl = state.zsl;
+  // Slice indicator
+  const zsl  = state.zsl;
   const fracZ = (zsl - zmin) / (zmax - zmin);
-  const lineY = Math.round((1 - fracZ) * (H - 1));
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(0, lineY);
-  ctx.lineTo(W, lineY);
-  ctx.stroke();
+  const lineY = Math.round((1 - fracZ) * (H-1));
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0,lineY); ctx.lineTo(W,lineY); ctx.stroke();
 
-  // Axis labels
+  // Axis text
   const xiH = lastResult.xiHalf, xcen = lastResult.xcen;
-  ctx.fillStyle = '#ffffffaa';
-  ctx.font = '10px Consolas';
-  ctx.textAlign = 'left';
-  ctx.fillText(`x=${(-xiH+xcen).toFixed(0)}d`, 3, H-3);
-  ctx.textAlign = 'right';
-  ctx.fillText(`x=${(xiH+xcen).toFixed(0)}d`, W-3, H-3);
-  // z-axis physical labels
   const zT_nm = 2 * state.d_nm * state.d_nm / state.lambda_nm;
+  ctx.fillStyle = '#ffffffaa'; ctx.font = '10px Consolas';
+  ctx.textAlign = 'left';  ctx.fillText(`x=${(-xiH+xcen).toFixed(0)}d`, 3, H-3);
+  ctx.textAlign = 'right'; ctx.fillText(`x=${( xiH+xcen).toFixed(0)}d`, W-3, H-3);
   ctx.save();
-  ctx.translate(W-3, H-5);
-  ctx.rotate(-Math.PI/2);
-  ctx.textAlign = 'right';
-  ctx.fillText(fmtLen(zmin * zT_nm), 0, 0);
-  ctx.textAlign = 'left';
-  ctx.fillText(fmtLen(zmax * zT_nm), -(H-10), 0);
+  ctx.translate(W-3, H-5); ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'right'; ctx.fillText(fmtLen(zmin*zT_nm), 0, 0);
+  ctx.textAlign = 'left';  ctx.fillText(fmtLen(zmax*zT_nm), -(H-10), 0);
   ctx.restore();
 }
-
 
 function getSliceArrays() {
   if (!lastResult) return null;
   const { coh, gsm, zmin, zmax } = lastResult;
   const fracZ = (state.zsl - zmin) / (zmax - zmin);
-  const iz = Math.round(Math.max(0, Math.min(1, fracZ)) * (NZ-1));
-  const cohSlice = coh.slice(iz*NX, (iz+1)*NX);
-  const gsmSlice = gsm.slice(iz*NX, (iz+1)*NX);
-  return { cohSlice, gsmSlice };
+  const iz    = Math.round(Math.max(0, Math.min(1, fracZ)) * (NZ-1));
+  return { cohSlice: coh.slice(iz*NX, (iz+1)*NX),
+           gsmSlice: gsm.slice(iz*NX, (iz+1)*NX) };
 }
 
 function renderSlice() {
   const canvas = document.getElementById('sliceCanvas');
-  const ctx = canvas.getContext('2d');
+  const ctx    = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.fillStyle = '#0a0a14';
   ctx.fillRect(0, 0, W, H);
   if (!lastResult) return;
-
   const slices = getSliceArrays();
   if (!slices) return;
   const { cohSlice, gsmSlice } = slices;
 
-  // Normalize each curve independently to its own peak → both appear at scale 1
   let maxC = 0, minC = Infinity, maxG = 0, minG = Infinity;
   for (let i = 0; i < NX; i++) {
     if (cohSlice[i] > maxC) maxC = cohSlice[i];
@@ -651,85 +607,62 @@ function renderSlice() {
     if (gsmSlice[i] > maxG) maxG = gsmSlice[i];
     if (gsmSlice[i] < minG) minG = gsmSlice[i];
   }
-  if (maxC === 0) maxC = 1;
-  if (maxG === 0) maxG = 1;
-  const contrastC = (maxC + minC > 0) ? (maxC - minC) / (maxC + minC) : 0;
-  const contrastG = (maxG + minG > 0) ? (maxG - minG) / (maxG + minG) : 0;
-  lastContrasts = {coh: contrastC, gsm: contrastG};
+  if (!maxC) maxC = 1;
+  if (!maxG) maxG = 1;
+  lastContrasts = {
+    coh: (maxC+minC > 0) ? (maxC-minC)/(maxC+minC) : 0,
+    gsm: (maxG+minG > 0) ? (maxG-minG)/(maxG+minG) : 0
+  };
 
   const pad = {l:40, r:15, t:25, b:35};
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const pw = W-pad.l-pad.r, ph = H-pad.t-pad.b;
+  const toX = i  => pad.l + (i/(NX-1))*pw;
+  const toY = v  => pad.t + ph*(1-v);
 
-  function toCanvasX(i) { return pad.l + (i/(NX-1))*pw; }
-  function toCanvasY(v) { return pad.t + ph * (1 - v); }  // v already normalised 0-1
-
-  // Draw filled areas
-  function drawFill(data, color, alpha) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(toCanvasX(0), toCanvasY(0));
-    for (let i = 0; i < NX; i++) {
-      ctx.lineTo(toCanvasX(i), toCanvasY(data[i]));
-    }
-    ctx.lineTo(toCanvasX(NX-1), toCanvasY(0));
-    ctx.closePath();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    ctx.fill();
+  function fill(data, col, a) {
+    ctx.save(); ctx.beginPath();
+    ctx.moveTo(toX(0), toY(0));
+    for (let i = 0; i < NX; i++) ctx.lineTo(toX(i), toY(data[i]));
+    ctx.lineTo(toX(NX-1), toY(0));
+    ctx.closePath(); ctx.globalAlpha = a; ctx.fillStyle = col; ctx.fill();
     ctx.restore();
   }
-
-  function drawLine(data, color) {
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
+  function line(data, col) {
+    ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = 1.5;
     for (let i = 0; i < NX; i++) {
-      const x = toCanvasX(i), y = toCanvasY(data[i]);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      const x = toX(i), y = toY(data[i]);
+      if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.stroke();
   }
 
-  // Normalise slices before drawing
-  const cohNorm = cohSlice.map(v => v / maxC);
-  const gsmNorm = gsmSlice.map(v => v / maxG);
+  const cohN = cohSlice.map(v => v/maxC);
+  const gsmN = gsmSlice.map(v => v/maxG);
+  fill(cohN,'#50c0b0',0.13); fill(gsmN,'#e08030',0.13);
+  line(cohN,'#50c0b0');      line(gsmN,'#e08030');
 
-  drawFill(cohNorm, '#50c0b0', 0.13);
-  drawFill(gsmNorm, '#e08030', 0.13);
-  drawLine(cohNorm, '#50c0b0');
-  drawLine(gsmNorm, '#e08030');
-
-  // Axes
-  ctx.strokeStyle = '#445566';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#445566'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph);
-  ctx.lineTo(pad.l+pw, pad.t+ph);
-  ctx.stroke();
+  ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
 
-  // Labels
-  ctx.fillStyle = '#aabbcc';
-  ctx.font = '11px Consolas';
-  ctx.textAlign = 'center';
   const xiH = lastResult.xiHalf, xcen = lastResult.xcen;
+  ctx.fillStyle = '#aabbcc'; ctx.font = '11px Consolas';
+  ctx.textAlign = 'center';
   ctx.fillText(`${(-xiH+xcen).toFixed(0)}d`, pad.l, H-5);
-  ctx.fillText(`${xcen.toFixed(0)}d`, pad.l+pw/2, H-5);
-  ctx.fillText(`${(xiH+xcen).toFixed(0)}d`, pad.l+pw, H-5);
+  ctx.fillText(`${xcen.toFixed(0)}d`,         pad.l+pw/2, H-5);
+  ctx.fillText(`${(xiH+xcen).toFixed(0)}d`,   pad.l+pw, H-5);
   ctx.fillText('x', pad.l+pw/2, H-18);
-
   ctx.textAlign = 'right';
   ctx.fillText('I/I₀', pad.l-3, pad.t+8);
-  ctx.fillText('0', pad.l-3, pad.t+ph);
-  ctx.fillText('1', pad.l-3, pad.t+4);
+  ctx.fillText('0',    pad.l-3, pad.t+ph);
+  ctx.fillText('1',    pad.l-3, pad.t+4);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ccddee';
+  ctx.fillText(`Intensity slice  z/z_T = ${state.zsl.toFixed(2)}`, pad.l+pw/2, pad.t-7);
 
-  // Title
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#ccddee';
   ctx.font = '11px Consolas';
-  ctx.fillText(`Intensity slice at z/z_T = ${state.zsl.toFixed(2)}`, pad.l+pw/2, pad.t-7);
-
-  document.getElementById('cv_coh').textContent = `C = ${contrastC.toFixed(4)}`;
-  document.getElementById('cv_gsm').textContent = `C = ${contrastG.toFixed(4)}`;
+  document.getElementById('cv_coh').textContent = `C = ${lastContrasts.coh.toFixed(4)}`;
+  document.getElementById('cv_gsm').textContent = `C = ${lastContrasts.gsm.toFixed(4)}`;
 }
 
 function kv(k, v) {
@@ -738,33 +671,23 @@ function kv(k, v) {
 
 function renderInfo() {
   if (!lastResult) return;
-  const { sIL, sCL, rho } = lastResult;
+  const { sIL, sCL, rho, A0, DeltaV } = lastResult;
   const rhoStr = isFinite(rho) ? rho.toFixed(3) : '∞';
   const cc = lastContrasts.coh !== null ? lastContrasts.coh.toFixed(4) : '—';
   const cg = lastContrasts.gsm !== null ? lastContrasts.gsm.toFixed(4) : '—';
 
-  // Physical scales
-  const lod = getLod();
-  const zT_nm = 2 * state.d_nm * state.d_nm / state.lambda_nm;
+  const lod   = getLod();
+  const zT_nm = 2 * state.d_nm**2 / state.lambda_nm;
   const L_nm  = state.LNorm * zT_nm;
 
-  // Fresnel status at slice z and at zmax
-  const zetaSlice = state.zsl;
-  const zetaMax   = state.zmax;
-  const M4 = state.M ** 4;
-  const fresnelParamSlice = Math.PI * M4 * lod * lod * zetaSlice / 2;
-  const fresnelParamMax   = Math.PI * M4 * lod * lod * zetaMax   / 2;
-  const zetaThresh10  = fresnelThreshold(state.M, lod, 0.1);
-  const zetaThresh100 = fresnelThreshold(state.M, lod, 1.0);
-
-  function fresnelClass(param) {
-    return param > 1.0 ? 'fresnel-warn' : param > 0.1 ? 'fresnel-marginal' : 'fresnel-ok';
-  }
-  function fresnelLabel(param) {
-    return param > 1.0 ? `BROKEN (${param.toFixed(2)})` :
-           param > 0.1 ? `marginal (${param.toFixed(3)})` :
-                         `OK (${param.toFixed(3)})`;
-  }
+  // Wigner-specific: fringe factor F = A₀/Â at the slice z
+  const sI2   = sIL*sIL;
+  const Ahat  = 2*zetaSlice**2/sI2 + A0;
+  const F     = A0/Ahat;
+  // Envelope width at slice (in units of d)
+  const Sigma = Math.sqrt(Ahat * sI2 / A0);
+  // Coherence length at slice
+  const lc_eff = Math.sqrt(Ahat) / (2*Math.PI*Math.sqrt(1/(4*sI2) + 1/(sIL**2 > 0 ? sIL**2 : 1)));
 
   document.getElementById('infoPanel').innerHTML = `<div class="info-grid">
     <div class="info-head">Physical parameters</div>
@@ -779,25 +702,26 @@ function renderInfo() {
     ${kv('σ_I(0)/d =', state.sI0.toFixed(2))}
     ${kv('σ_c(0)/d =', state.sc0.toFixed(2))}
     ${kv('z_T/R(0) =', state.invR0.toFixed(3))}
-    <div class="info-head">At grating (L=${state.LNorm}z_T = ${fmtLen(L_nm)})</div>
+    <div class="info-head">At grating (L = ${fmtLen(L_nm)})</div>
     ${kv('σ_I(L)/d =', sIL.toFixed(4))}
     ${kv('σ_c(L)/d =', sCL.toFixed(4))}
     ${kv('ρ/z_T =', rhoStr)}
-    <div class="info-head">Contrast at z=${state.zsl.toFixed(2)}z_T = ${fmtLen(state.zsl * zT_nm)}</div>
+    <div class="info-head">Wigner parameters (Δ̃_v, A₀)</div>
+    ${kv('Δ̃_v =', DeltaV.toFixed(5))}
+    ${kv('A₀ = π²/Δ̃_v =', A0.toFixed(4))}
+    ${kv('Â(ζ_slice) =', Ahat.toFixed(4))}
+    ${kv('F = A₀/Â =', F.toFixed(4))}
+    ${kv('Σ(ζ_slice)/d =', Sigma.toFixed(4))}
+    <div class="info-head">Contrast at z = ${state.zsl.toFixed(2)} z_T = ${fmtLen(state.zsl*zT_nm)}</div>
     ${kv('C_coh =', cc)}
-    ${kv('C_GSM =', cg)}
-    <div class="info-head">Fresnel validity  [πM⁴(λ/d)²ζ/2 ≪ 1]</div>
-    ${kv('ζ₁₀% =', zetaThresh10 > 1e6 ? '∞' : zetaThresh10.toFixed(2) + ' z_T = ' + fmtLen(zetaThresh10 * zT_nm))}
-    ${kv('ζ₁₀₀% =', zetaThresh100 > 1e6 ? '∞' : zetaThresh100.toFixed(2) + ' z_T = ' + fmtLen(zetaThresh100 * zT_nm))}
-    <div class="info-kv"><span class="info-k">at slice:</span><span class="${fresnelClass(fresnelParamSlice)}">${fresnelLabel(fresnelParamSlice)}</span></div>
-    <div class="info-kv"><span class="info-k">at z_max:</span><span class="${fresnelClass(fresnelParamMax)}">${fresnelLabel(fresnelParamMax)}</span></div>
+    ${kv('C_Wigner =', cg)}
     <div class="info-head">View</div>
-    ${kv('z:', `[${state.zmin.toFixed(1)}, ${state.zmax.toFixed(1)}] z_T  =  [${fmtLen(state.zmin*zT_nm)}, ${fmtLen(state.zmax*zT_nm)}]`)}
-    ${kv('x:', `±${state.xiHalf}d (±${fmtLen(state.xiHalf * state.d_nm)}) + ${state.xcen}d`)}
+    ${kv('z:', `[${state.zmin.toFixed(1)}, ${state.zmax.toFixed(1)}] z_T`)}
+    ${kv('x:', `±${state.xiHalf}d (±${fmtLen(state.xiHalf*state.d_nm)}) + ${state.xcen}d`)}
   </div>`;
 }
 
-function renderAll(fromCompute) {
+function renderAll() {
   if (!lastResult) return;
   renderCarpet('cohCanvas', lastResult.coh, viridis, true);
   renderCarpet('gsmCanvas', lastResult.gsm, inferno, true);
@@ -805,7 +729,6 @@ function renderAll(fromCompute) {
   renderInfo();
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 scheduleCompute();
 </script>
 </body>

@@ -408,7 +408,9 @@
 <nav class="tabs" id="main-tabs">
   <button class="tab-btn active" data-target="panel-overview">Overview</button>
   <button class="tab-btn" data-target="panel-gsm">Gaussian–Schell Demo</button>
+  <button class="tab-btn" data-target="panel-wigner">Wigner Carpet</button>
   <button class="tab-btn" data-target="panel-micro">Microfluidic Demo</button>
+  <button class="tab-btn" data-target="panel-micro-wigner">Microfluidic Wigner</button>
   <button class="tab-btn" data-target="panel-math">Derivations</button>
   <button class="tab-btn" data-target="panel-refs">References</button>
 </nav>
@@ -435,13 +437,23 @@
         <div class="card" onclick="switchTab('panel-gsm')">
           <div class="card-icon"></div>
           <h3>Gaussian–Schell Model</h3>
-          <p>Interactive visualisation of the narrow GSM beam propagated through a single grating. This is an analytical solution.</p>
+          <p>Interactive visualisation of the narrow GSM beam propagated through a single grating. This is an analytical solution using the Fresnel approximation. This approximation breaks down at some point, there are visual guides to show the Fresnel approximation breaking down. The tell tale signs of this breakdown are visible in the simulation as double periodicity Lau fringes propagating along the z axis, these should be hyperbolae forming an equal path length condition between slits (m,n).</p>
+        </div>
+        <div class="card" onclick="switchTab('panel-wigner')">
+          <div class="card-icon">𝒲</div>
+          <h3>Wigner Carpet</h3>
+          <p>Exact phase-space propagation of the GSM Talbot carpet via the Wigner function — no Fresnel approximation.</p>
         </div>
         <div class="card" onclick="switchTab('panel-micro')">
           <div class="card-icon"></div>
           <h3>Microfluidic Analysis</h3>
           <p>Analytic model for a grating where each slit is a mutually incoherent source. In the LEMING collaboration this source is referred to as a microfluidic source, in refernce to the He-II capillary action utilised in the source. This is simply a sum of the narrow GSM simulation with periodic displacement equal to that of the grating. 
           </p>
+        </div>
+        <div class="card" onclick="switchTab('panel-micro-wigner')">
+          <div class="card-icon">𝒲</div>
+          <h3>Microfluidic Wigner</h3>
+          <p>Exact Wigner phase-space propagation for the periodic microfluidic source — combines the multi-slit incoherent sum with exact propagation.</p>
         </div>
         <div class="card" onclick="switchTab('panel-math')">
           <div class="card-icon">∫</div>
@@ -478,6 +490,25 @@
     </div>
   </section>
 
+  <!-- ─── WIGNER CARPET ───────────────────────────────── -->
+  <section class="tab-panel" id="panel-wigner">
+    <div class="iframe-panel">
+      <div class="iframe-toolbar">
+        <div class="dot green"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <span class="filename">wignerCarpet.html</span>
+        <a href="wignerCarpet.html" target="_blank">↗ open standalone</a>
+      </div>
+      <iframe
+        src="wignerCarpet.html"
+        title="Wigner–GSM Talbot Carpet"
+        loading="lazy"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </section>
+
   <!-- ─── MICROFLUIDIC DEMO ─────────────────────────── -->
   <section class="tab-panel" id="panel-micro">
     <div class="iframe-panel">
@@ -491,6 +522,25 @@
       <iframe
         src="microfluidicAnalyticWeb.html"
         title="Microfluidic Analytic Visualizer"
+        loading="lazy"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </section>
+
+  <!-- ─── MICROFLUIDIC WIGNER ─────────────────────────── -->
+  <section class="tab-panel" id="panel-micro-wigner">
+    <div class="iframe-panel">
+      <div class="iframe-toolbar">
+        <div class="dot green"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <span class="filename">microFluidicWigner.html</span>
+        <a href="microFluidicWigner.html" target="_blank">↗ open standalone</a>
+      </div>
+      <iframe
+        src="microFluidicWigner.html"
+        title="Microfluidic Wigner Carpet"
         loading="lazy"
         allowfullscreen
       ></iframe>
@@ -829,8 +879,10 @@ $$
 
   // ── Hash-based deep linking ───────────────────────
   const hashMap = {
-    '#gsm':   'panel-gsm',
-    '#micro': 'panel-micro',
+    '#gsm':    'panel-gsm',
+    '#wigner': 'panel-wigner',
+    '#micro':        'panel-micro',
+    '#micro-wigner': 'panel-micro-wigner',
     '#math':  'panel-math',
     '#refs':  'panel-refs',
   };
