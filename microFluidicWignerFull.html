@@ -70,7 +70,7 @@ A(z) = \tfrac{(\lambda z)^2}{2\sigma_I^2} + \tfrac{\pi^2}{\Delta_v},\qquad
 
 <div class="canvas-row">
   <div class="canvas-wrap">
-    <label>Single source &nbsp;(s&nbsp;=&nbsp;0, beam z&thinsp;&lt;&thinsp;0)</label>
+    <label>Single source &nbsp;(s&nbsp;=&nbsp;0 only)</label>
     <canvas id="ssCanvas" width="300" height="420"></canvas>
   </div>
   <div class="canvas-wrap">
@@ -399,7 +399,7 @@ let worker=new Worker(workerURL);
 const NX=1024, NZ=400;
 const DEFAULTS={f:0.5,Pmax:8,sI0:0.5,sc0:0.5,invR0:0,zmin:0,zmax:1.5,zsl:1.0,xiHalf:10,LNorm:1.0};
 let state={...DEFAULTS};
-let lastResult=null, computing=false, pendingCompute=false, lastPhysKey=null, sentPhysKey=null, sentView={};
+let lastResult=null, computing=false, pendingCompute=false, lastPhysKey=null;
 let lastSliceContrast={ss:null,mf:null};
 function physicsKey(s){return`${s.f}|${s.Pmax}|${s.sI0}|${s.sc0}|${s.invR0}|${s.LNorm}|${s.zmin}|${s.zmax}|${s.xiHalf}`;}
 
@@ -468,8 +468,7 @@ function setSlider(key,val){
   document.getElementById(id).addEventListener('click',e=>{
     const rect=e.target.getBoundingClientRect();
     const fracY=1-(e.clientY-rect.top)/rect.height;
-    // Canvas spans z ∈ [-LNorm, zmax]; fracY=1 → zmax, fracY=0 → -LNorm
-    const zval=-state.LNorm+fracY*(state.LNorm+state.zmax);
+    const zval=state.zmin+fracY*(state.zmax-state.zmin);
     setSlider('zsl',Math.max(0,Math.min(800,parseFloat(zval.toFixed(2)))));
     if(lastResult) renderAll();
   });
@@ -481,8 +480,6 @@ function doCompute(){
   computing=true; pendingCompute=false;
   const key=physicsKey(state);
   if(key===lastPhysKey&&lastResult){computing=false;renderAll();return;}
-  sentPhysKey=key;
-  sentView={zmin:state.zmin, zmax:state.zmax, xiHalf:state.xiHalf};
   document.getElementById('statusLine').textContent='Computing\u2026';
   document.getElementById('progressFill').style.width='0%';
   document.getElementById('progressBar').style.display='block';
@@ -508,9 +505,9 @@ worker.onmessage=function(e){
   lastResult={
     mf:new Float32Array(mfArr), ss:new Float32Array(ssArr),
     sIL,sCL,rho,S_lo,S_hi,sig_rep,S_max,
-    zmin:sentView.zmin,zmax:sentView.zmax,xiHalf:sentView.xiHalf
+    zmin:state.zmin,zmax:state.zmax,xiHalf:state.xiHalf
   };
-  lastPhysKey=sentPhysKey; computing=false;
+  lastPhysKey=physicsKey(state); computing=false;
   progressFill.style.width='100%';
   setTimeout(()=>{ progressBar.style.display='none'; progressFill.style.width='0%'; }, 300);
 
@@ -527,106 +524,36 @@ worker.onmessage=function(e){
 // vmax: shared upper bound so both carpets are on the same intensity scale.
 // Each carpet uses min=0, max=vmax, so a uniform microfluidic background
 // shows as a solid colour rather than collapsing to black.
-// Renders a carpet canvas spanning z ∈ [-LNorm, zmax].
-// Pre-grating region (z < 0): beam Gaussian if showBeam, else black.
-// Post-grating region (z ≥ 0): Talbot carpet from data[].
-function renderExtended(canvasId, data, cmap, vmax, showBeam){
+function renderCarpet(canvasId,data,cmap,vmax){
   const canvas=document.getElementById(canvasId);
   const ctx=canvas.getContext('2d');
   const W=canvas.width, H=canvas.height;
   const img=ctx.createImageData(W,H);
   const d=img.data;
-
-  const{zmin,zmax,xiHalf}=lastResult;
-  const{sI0,sc0,invR0,LNorm}=state;
-  const totalZ=LNorm+zmax;            // full z span shown
-  const range=vmax||1;
-
-  // Pre-grating beam σ_I(z_prop), z_prop=0 at source, LNorm at grating
-  const sc0sq=Math.max(sc0*sc0,1e-40);
-  const pd=1.0/(4.0*sI0*sI0)+1.0/sc0sq;
-  function sigAt(z_prop){
-    const fac=1-z_prop*invR0;
-    return Math.sqrt(Math.max(sI0*sI0*fac*fac+z_prop*z_prop*pd/(Math.PI*Math.PI),1e-12));
-  }
-  const sig0=sigAt(0); // source σ for normalization
-
+  const range = vmax || 1;
   for(let row=0;row<H;row++){
-    // row 0 = top = zmax, row H-1 = bottom = -LNorm
-    const z=zmax-row/(H-1)*totalZ;
-    let rr=0,gg=0,bb=0;
-
-    if(z>=0){
-      // Post-grating: carpet data
-      const iz=Math.min(NZ-1,Math.max(0,Math.round((z-zmin)/(zmax-zmin)*(NZ-1))));
-      for(let col=0;col<W;col++){
-        const ix=Math.floor(col/(W-1)*(NX-1));
-        let v=data[iz*NX+ix]/range;
-        v=Math.sqrt(Math.max(0,v));
-        const[r,g,b]=cmap(v);
-        const idx=(row*W+col)*4;
-        d[idx]=r;d[idx+1]=g;d[idx+2]=b;d[idx+3]=255;
-      }
-    } else if(showBeam){
-      // Pre-grating: GSM Gaussian beam
-      const z_prop=LNorm+z; // 0 at source, LNorm at grating
-      const sig=sigAt(z_prop);
-      const sig2=2*sig*sig;
-      const peakNorm=sig0/sig;
-      for(let col=0;col<W;col++){
-        const x=-xiHalf+col/(W-1)*2*xiHalf;
-        let v=peakNorm*Math.exp(-x*x/sig2);
-        v=Math.sqrt(Math.max(0,v));
-        const[r,g,b]=viridis(Math.min(1,v));
-        const idx=(row*W+col)*4;
-        d[idx]=r;d[idx+1]=g;d[idx+2]=b;d[idx+3]=255;
-      }
-    } else {
-      // Pre-grating: black
-      for(let col=0;col<W;col++){
-        const idx=(row*W+col)*4;
-        d[idx]=0;d[idx+1]=0;d[idx+2]=0;d[idx+3]=255;
-      }
+    const iz=Math.floor((H-1-row)/(H-1)*(NZ-1));
+    for(let col=0;col<W;col++){
+      const ix=Math.floor(col/(W-1)*(NX-1));
+      let v=data[iz*NX+ix]/range;
+      v=Math.sqrt(Math.max(0,v));
+      const [r,g,b]=cmap(v);
+      const idx=(row*W+col)*4;
+      d[idx]=r;d[idx+1]=g;d[idx+2]=b;d[idx+3]=255;
     }
   }
   ctx.putImageData(img,0,0);
-
-  // Grating line at z=0
-  const gratingRow=Math.round(zmax/totalZ*(H-1));
-  ctx.strokeStyle='rgba(255,220,80,0.75)'; ctx.lineWidth=1.5;
-  ctx.setLineDash([5,4]);
-  ctx.beginPath(); ctx.moveTo(0,gratingRow); ctx.lineTo(W,gratingRow); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // ±σ_I(z) boundary on the beam region
-  if(showBeam){
-    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1;
-    ctx.setLineDash([3,3]);
-    for(const sign of[1,-1]){
-      ctx.beginPath();
-      for(let row=gratingRow;row<H;row++){
-        const z=zmax-row/(H-1)*totalZ;
-        const sig=sigAt(LNorm+z);
-        const xPx=(sign*sig+xiHalf)/(2*xiHalf)*(W-1);
-        row===gratingRow?ctx.moveTo(xPx,row):ctx.lineTo(xPx,row);
-      }
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-  }
-
-  // Slice line (only in post-grating region)
-  const fracSl=(zmax-state.zsl)/totalZ;
-  const lineY=Math.round(Math.max(0,Math.min(gratingRow,fracSl*(H-1))));
+  const{zmin,zmax}=lastResult;
+  const fracZ=(state.zsl-zmin)/(zmax-zmin);
+  const lineY=Math.round((1-fracZ)*(H-1));
   ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(0,lineY); ctx.lineTo(W,lineY); ctx.stroke();
-
-  // Labels
+  const xiH=lastResult.xiHalf;
   ctx.fillStyle='#ffffffaa'; ctx.font='10px Consolas';
-  ctx.textAlign='left';  ctx.fillText(`x=${(-xiHalf).toFixed(0)}d`,3,H-3);
-  ctx.textAlign='right'; ctx.fillText(`x=${xiHalf.toFixed(0)}d`,W-3,H-3);
-  ctx.save(); ctx.translate(W-3,H-4); ctx.rotate(-Math.PI/2);
-  ctx.textAlign='right'; ctx.fillText(`z=\u2212${LNorm.toFixed(1)}`,0,0);
+  ctx.textAlign='left';  ctx.fillText(`x=${(-xiH).toFixed(0)}d`,3,H-3);
+  ctx.textAlign='right'; ctx.fillText(`x=${(xiH).toFixed(0)}d`,W-3,H-3);
+  ctx.save(); ctx.translate(W-3,H-5); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='right'; ctx.fillText(`z=${zmin.toFixed(1)}`,0,0);
   ctx.textAlign='left';  ctx.fillText(`z=${zmax.toFixed(1)}`,-(H-10),0);
   ctx.restore();
 }
@@ -826,8 +753,8 @@ function renderAll(){
   for(let i=0;i<lastResult.ss.length;i++) if(lastResult.ss[i]>vmaxSS) vmaxSS=lastResult.ss[i];
   let vmaxMF = 0;
   for(let i=0;i<lastResult.mf.length;i++) if(lastResult.mf[i]>vmaxMF) vmaxMF=lastResult.mf[i];
-  renderExtended('ssCanvas', lastResult.ss, viridis, vmaxSS || 1, true);
-  renderExtended('mfCanvas', lastResult.mf, magma,   vmaxMF || 1, false);
+  renderCarpet('ssCanvas', lastResult.ss, viridis, vmaxSS || 1);
+  renderCarpet('mfCanvas', lastResult.mf, magma,   vmaxMF || 1);
   renderSlice();
   renderContrast();
   renderInfo();

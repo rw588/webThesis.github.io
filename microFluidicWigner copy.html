@@ -399,7 +399,7 @@ let worker=new Worker(workerURL);
 const NX=1024, NZ=400;
 const DEFAULTS={f:0.5,Pmax:8,sI0:0.5,sc0:0.5,invR0:0,zmin:0,zmax:1.5,zsl:1.0,xiHalf:10,LNorm:1.0};
 let state={...DEFAULTS};
-let lastResult=null, computing=false, pendingCompute=false, lastPhysKey=null, sentPhysKey=null, sentView={};
+let lastResult=null, computing=false, pendingCompute=false, lastPhysKey=null;
 let lastSliceContrast={ss:null,mf:null};
 function physicsKey(s){return`${s.f}|${s.Pmax}|${s.sI0}|${s.sc0}|${s.invR0}|${s.LNorm}|${s.zmin}|${s.zmax}|${s.xiHalf}`;}
 
@@ -481,8 +481,6 @@ function doCompute(){
   computing=true; pendingCompute=false;
   const key=physicsKey(state);
   if(key===lastPhysKey&&lastResult){computing=false;renderAll();return;}
-  sentPhysKey=key;
-  sentView={zmin:state.zmin, zmax:state.zmax, xiHalf:state.xiHalf};
   document.getElementById('statusLine').textContent='Computing\u2026';
   document.getElementById('progressFill').style.width='0%';
   document.getElementById('progressBar').style.display='block';
@@ -508,9 +506,9 @@ worker.onmessage=function(e){
   lastResult={
     mf:new Float32Array(mfArr), ss:new Float32Array(ssArr),
     sIL,sCL,rho,S_lo,S_hi,sig_rep,S_max,
-    zmin:sentView.zmin,zmax:sentView.zmax,xiHalf:sentView.xiHalf
+    zmin:state.zmin,zmax:state.zmax,xiHalf:state.xiHalf
   };
-  lastPhysKey=sentPhysKey; computing=false;
+  lastPhysKey=physicsKey(state); computing=false;
   progressFill.style.width='100%';
   setTimeout(()=>{ progressBar.style.display='none'; progressFill.style.width='0%'; }, 300);
 
