@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/robertwaddy/Nextcloud/raidyMcRaiderson/Code/webThesis/microFluidic*.html)"
+    ]
+  }
+}
