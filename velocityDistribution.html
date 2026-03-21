@@ -72,6 +72,10 @@ C_{\rm eff}=A\left|\int\!\tilde{A}(v)\,e^{\,ik\phi(v)}\,dv\right|,\quad\phi(v)=g
     <label>Talbot phase distribution &nbsp;N<sub>T</sub>(v) = L<sub>arm</sub>/T<sub>L</sub>(v)</label>
     <canvas id="ntDistCanvas" width="500" height="240"></canvas>
   </div>
+  <div class="canvas-wrap">
+    <label>Gravitational phase shift &nbsp;&phi;(v) = kg(L<sub>arm</sub>/v)<sup>2</sup></label>
+    <canvas id="phaseDistCanvas" width="500" height="240"></canvas>
+  </div>
 </div>
 
 <div class="bottom-row">
@@ -328,9 +332,30 @@ function compute() {
     if (cumNT >= 0.99) { ntPlotMax = ntSorted[i]; break; }
   }
 
+  // ── Phase shift distribution: φ(v) = k·g·(L_arm/v)² [radians] ──────────
+  // Monotonically decreasing with v, so reverse to get ascending φ.
+  // Jacobian: P(φ) = P(v)·|dv/dφ| = P(v)·v³ / (2·k·g·L_arm²)
+  const phiArr_raw  = Array.from(vArr).map(v =>
+    Larm > 0 ? k * g * (Larm / v) * (Larm / v) : 0);
+  const pPhiArr_raw = Array.from(vArr).map((v, i) =>
+    (Larm > 0 && g > 0) ? P[i] * v * v * v / (2 * k * g * Larm * Larm) : 0);
+
+  const phiSorted  = phiArr_raw.slice().reverse();
+  const pPhiRev    = pPhiArr_raw.slice().reverse();
+  const sumPPhi    = pPhiRev.reduce((a, b) => a + b, 0);
+  const pPhinorm   = sumPPhi > 0 ? pPhiRev.map(p => p / sumPPhi) : pPhiRev;
+
+  // Clip at 99th percentile (high-φ tail from slow atoms)
+  let cumPhi = 0, phiPlotMax = phiSorted[phiSorted.length - 1];
+  for (let i = 0; i < phiSorted.length; i++) {
+    cumPhi += pPhinorm[i];
+    if (cumPhi >= 0.99) { phiPlotMax = phiSorted[i]; break; }
+  }
+
   return { vArr, P, vLo, vHi, xi, phiEff, xArr, I_actual, I_ideal, xHalf, d, k,
            swArr, cArr, swMax, curFrac, xAxisLabel, phi0, phi0_m, A, C, sigEff,
-           tLArr_um, TL0_um, ntSorted, pNTnorm, ntPlotMax, N0 };
+           tLArr_um, TL0_um, ntSorted, pNTnorm, ntPlotMax, N0,
+           phiSorted, pPhinorm, phiPlotMax };
 }
 
 // ── Axis helper ────────────────────────────────────────────────────────────
@@ -537,7 +562,7 @@ function renderTalbot(res) {
     const tLmin = tLArr_um[0];
     const pmax  = Math.max(...P) * 1.12 || 1;
 
-    const ax = drawAxes(ctx, W, H, 58, 12, 16, 30,
+    const ax = drawAxes(ctx, W, H, 58, 12, 16, 46,
       'T\u2097(v)  (\u03bcm)', 'P(T\u2097)',
       tLmin, tLmax, 0, pmax, 5, 3);
 
@@ -586,7 +611,7 @@ function renderTalbot(res) {
     const ntMax2 = ntClip[ntClip.length - 1];
     const pNTmax = Math.max(...pNTClip) * 1.12 || 1;
 
-    const ax = drawAxes(ctx, W, H, 58, 12, 16, 30,
+    const ax = drawAxes(ctx, W, H, 58, 12, 16, 46,
       'N\u209c(v) = L\u2090\u2099\u2098/T\u2097(v)', 'P(N\u209c)',
       ntMin, ntMax2, 0, pNTmax, 5, 3);
 
@@ -620,6 +645,60 @@ function renderTalbot(res) {
     ctx.font = '10px Consolas'; ctx.fillStyle = '#667788'; ctx.textAlign = 'right';
     ctx.fillText('(clipped at 99th percentile)', ax.pl + ax.iW - 4, ax.pt + ax.iH - 6);
   }
+}
+
+// ── Phase shift distribution canvas ────────────────────────────────────────
+const COL_PHASE = '#ff8844';   // warm orange for phase distribution
+
+function renderPhaseDist(res) {
+  const { phiSorted, pPhinorm, phiPlotMax, phi0 } = res;
+  const canvas = document.getElementById('phaseDistCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = COL_BG; ctx.fillRect(0, 0, W, H);
+
+  // Clip to 99th percentile
+  const clipIdx = phiSorted.findIndex(p => p >= phiPlotMax);
+  const phiClip = clipIdx > 1 ? phiSorted.slice(0, clipIdx + 1) : phiSorted;
+  const pClip   = clipIdx > 1 ? pPhinorm.slice(0, clipIdx + 1)  : pPhinorm;
+
+  const phiMin = phiClip[0];
+  const phiMax = phiClip[phiClip.length - 1];
+  const pmax   = Math.max(...pClip) * 1.12 || 1;
+
+  const ax = drawAxes(ctx, W, H, 58, 12, 16, 46,
+    '\u03c6(v)  (rad)', 'P(\u03c6)',
+    phiMin, phiMax, 0, pmax, 5, 3);
+
+  // Fill under curve
+  ctx.fillStyle = 'rgba(255,136,68,0.10)';
+  ctx.beginPath();
+  const [px0, pyB] = toPx(ax, phiClip[0], 0);
+  ctx.moveTo(px0, pyB);
+  for (let i = 0; i < phiClip.length; i++) {
+    const [px, py] = toPx(ax, phiClip[i], pClip[i]);
+    ctx.lineTo(px, py);
+  }
+  const [pxL, pyBL] = toPx(ax, phiClip[phiClip.length - 1], 0);
+  ctx.lineTo(pxL, pyBL); ctx.closePath(); ctx.fill();
+
+  // Curve
+  ctx.strokeStyle = COL_PHASE; ctx.lineWidth = 2;
+  polyline(ctx, ax, phiClip, pClip);
+
+  // φ₀ marker (phase at v₀)
+  if (phi0 >= phiMin && phi0 <= phiMax) {
+    const [pPx] = toPx(ax, phi0, 0);
+    ctx.strokeStyle = 'rgba(255,200,80,0.65)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(pPx, ax.pt); ctx.lineTo(pPx, ax.pt + ax.iH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '11px Consolas'; ctx.fillStyle = '#ffcc88'; ctx.textAlign = 'center';
+    ctx.fillText('\u03c6\u2080 = ' + phi0.toExponential(3) + ' rad', pPx, ax.pt + 12);
+  }
+
+  // 99th percentile note
+  ctx.font = '10px Consolas'; ctx.fillStyle = '#667788'; ctx.textAlign = 'right';
+  ctx.fillText('(clipped at 99th percentile)', ax.pl + ax.iW - 4, ax.pt + ax.iH - 6);
 }
 
 // ── Info panel ─────────────────────────────────────────────────────────────
@@ -658,9 +737,9 @@ function renderInfo(res) {
     <div class="info-kv"><span class="info-k">γ input:</span><span class="info-v">${gamma.toFixed(3)}</span></div>
     <div class="info-kv"><span class="info-k">A<sub>amp</sub>:</span><span class="info-v">${A.toFixed(4)}</span></div>
     <div class="info-kv"><span class="info-k">C<sub>dc</sub>:</span><span class="info-v">${C.toFixed(4)}</span></div>
-    <div class="info-head">Phase</div>
-    <div class="info-kv"><span class="info-k">φ₀ = g(L/v₀)²:</span><span class="info-v">${phi0_pm.toFixed(2)} pm &nbsp;= ${phi0.toFixed(5)} rad</span></div>
-    <div class="info-kv"><span class="info-k">Δφ_eff (phase shift):</span><span class="info-v">${phiEff_pm.toFixed(4)} pm &nbsp;= ${phiEff.toFixed(5)} rad</span></div>
+    <div class="info-head">Phase (in pm)</div>
+    <div class="info-kv"><span class="info-k">φ₀ = g(L/v₀)²:</span><span class="info-v">${phi0_pm.toFixed(2)} pm</span></div>
+    <div class="info-kv"><span class="info-k">Δφ_eff (phase shift):</span><span class="info-v">${phiEff_pm.toFixed(4)} pm</span></div>
     ${dphi_pm > 0 ? `<div class="info-kv"><span class="info-k">Δφ_rms (spread):</span><span class="info-v">${dphi_pm.toFixed(4)} pm</span></div>` : ''}
     <div class="info-head">Contrast</div>
     <div class="info-kv"><span class="info-k">ξ (vel. avg. factor):</span><span class="info-v">${xi.toFixed(6)}</span></div>
@@ -674,6 +753,7 @@ function renderAll() {
   renderFringe(res);
   renderContrast(res);
   renderTalbot(res);
+  renderPhaseDist(res);
   renderInfo(res);
 }
 
