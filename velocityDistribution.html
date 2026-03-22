@@ -43,9 +43,23 @@
 <body>
 <h2>Velocity Distribution &mdash; Interferometric Contrast Reduction</h2>
 <div class="subtitle">
-\[I(x)=\int A(v)\cos\!\left(k\!\left[x+\tfrac{g}{2}\!\left(\tfrac{L}{v}\right)^{\!2}\right]\right)dv+C
-\qquad\longrightarrow\qquad
-C_{\rm eff}=A\left|\int\!\tilde{A}(v)\,e^{\,ik\phi(v)}\,dv\right|,\quad\phi(v)=g\!\left(\tfrac{L}{v}\right)^{\!2}=gt^2\]
+\[
+\xi\,e^{i\varphi_{\rm eff}}
+  = \int\tilde{A}(v)\,e^{\,ik\varphi(v)}\,dv,
+\qquad
+\varphi(v) = g\!\left(\frac{L_{\rm arm}}{v}\right)^{\!2},
+\qquad
+k = \frac{2\pi}{d},
+\qquad
+I(x) = C_{\rm dc} + A_{\rm amp}\,\xi\cos\!\left(kx - \varphi_{\rm eff}\right)
+\]
+\[
+T_L(v) = \frac{d^2}{\lambda_{\rm dB}(v)} = \frac{d^2 m_{\rm Mu}\,v}{h},
+\qquad
+N_T(v) = \frac{L_{\rm arm}}{T_L(v)},
+\qquad
+\varphi_{\rm pm}(v) = g\!\left(\frac{L_{\rm arm}}{v}\right)^{\!2}\times 10^{12}\ [\text{pm}]
+\]
 </div>
 
 <div class="canvas-row">
@@ -332,13 +346,14 @@ function compute() {
     if (cumNT >= 0.99) { ntPlotMax = ntSorted[i]; break; }
   }
 
-  // ── Phase shift distribution: φ(v) = k·g·(L_arm/v)² [radians] ──────────
+  // ── Phase shift distribution: φ(v) = g·(L_arm/v)² [pm] ─────────────────
+  // Physical gravitational sag in pm = g·(L_arm/v)² × 1e12.
   // Monotonically decreasing with v, so reverse to get ascending φ.
-  // Jacobian: P(φ) = P(v)·|dv/dφ| = P(v)·v³ / (2·k·g·L_arm²)
+  // Jacobian: P(φ_pm) = P(v)·|dv/dφ_pm| = P(v)·v³ / (2·g·L_arm²·1e12)
   const phiArr_raw  = Array.from(vArr).map(v =>
-    Larm > 0 ? k * g * (Larm / v) * (Larm / v) : 0);
+    Larm > 0 ? g * (Larm / v) * (Larm / v) * 1e12 : 0);
   const pPhiArr_raw = Array.from(vArr).map((v, i) =>
-    (Larm > 0 && g > 0) ? P[i] * v * v * v / (2 * k * g * Larm * Larm) : 0);
+    (Larm > 0 && g > 0) ? P[i] * v * v * v / (2 * g * Larm * Larm * 1e12) : 0);
 
   const phiSorted  = phiArr_raw.slice().reverse();
   const pPhiRev    = pPhiArr_raw.slice().reverse();
@@ -667,7 +682,7 @@ function renderPhaseDist(res) {
   const pmax   = Math.max(...pClip) * 1.12 || 1;
 
   const ax = drawAxes(ctx, W, H, 58, 12, 16, 46,
-    '\u03c6(v)  (rad)', 'P(\u03c6)',
+    '\u03c6(v)  (pm)', 'P(\u03c6)',
     phiMin, phiMax, 0, pmax, 5, 3);
 
   // Fill under curve
@@ -686,14 +701,15 @@ function renderPhaseDist(res) {
   ctx.strokeStyle = COL_PHASE; ctx.lineWidth = 2;
   polyline(ctx, ax, phiClip, pClip);
 
-  // φ₀ marker (phase at v₀)
-  if (phi0 >= phiMin && phi0 <= phiMax) {
-    const [pPx] = toPx(ax, phi0, 0);
+  // φ₀ marker (phase at v₀) — phi0_m is gravitational sag in metres
+  const phi0_pm = phi0_m * 1e12;
+  if (phi0_pm >= phiMin && phi0_pm <= phiMax) {
+    const [pPx] = toPx(ax, phi0_pm, 0);
     ctx.strokeStyle = 'rgba(255,200,80,0.65)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
     ctx.beginPath(); ctx.moveTo(pPx, ax.pt); ctx.lineTo(pPx, ax.pt + ax.iH); ctx.stroke();
     ctx.setLineDash([]);
     ctx.font = '11px Consolas'; ctx.fillStyle = '#ffcc88'; ctx.textAlign = 'center';
-    ctx.fillText('\u03c6\u2080 = ' + phi0.toExponential(3) + ' rad', pPx, ax.pt + 12);
+    ctx.fillText('\u03c6\u2080 = ' + phi0_pm.toFixed(4) + ' pm', pPx, ax.pt + 12);
   }
 
   // 99th percentile note

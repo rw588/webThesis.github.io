@@ -55,17 +55,31 @@
 <h2>Gaussian-Schell Model &#8212; Polychromatic microfluidic Talbot Carpet</h2>
 <div class="subtitle">
 \[
-I_\text{mf}(x,z) = I_0\sqrt{\!\frac{\pi}{\Delta_v}}
+\langle I_{\rm mf}\rangle(x,z)
+= \int\!\tilde{A}(v)\,I_{\rm mf}\!\left(x,\,\frac{z}{T_L(v)};\,v\right)dv,
+\qquad
+\tilde{A}(v)=\mathcal{N}(v_0,\sigma_v^2),
+\qquad
+T_L(v)=\frac{d^2}{\lambda_{\rm dB}(v)}\propto v
+\]
+\[
+\langle I_{\rm mf}\rangle(x,\zeta_0)
+= I_0\sqrt{\!\frac{\pi}{\Delta_v}}
 \sum_{m,n} a_m a_n \sqrt{\!\frac{\pi}{A}}\;
-\underbrace{e^{-\pi^2(m-n)^2(\lambda z)^2/(Ad^2)}}_{\text{order envelope}}
-\;\underbrace{e^{\,2\pi i(m-n)\,\bar{x}_{mn}\,\pi^2/(A\Delta_v\,d)}}_{\text{fringe phase}}
-\;\sum_s\underbrace{e^{-(\bar{x}_{mn}-sd)^2\pi^2/(2\sigma_I^2 A\Delta_v)}}_{\text{source Gaussian}}
+\underbrace{e^{-\pi^2(m-n)^2\zeta_0^2/A}}_{\text{order envelope}}
+\;\underbrace{e^{-\frac{\pi^2}{2}(m-n)^2(m+n)^2\zeta_0^2(\sigma_v/v_0)^2}}_{\text{Gaussian velocity damping}}
+\;\underbrace{e^{\,2\pi i(m-n)\bar{x}_{mn}\pi^2/(A\Delta_v)}}_{\text{fringe phase}}
+\;\sum_s
+\underbrace{e^{-(\bar{x}_{mn}-s)^2\pi^2/(2\sigma_I^2 A\Delta_v)}}_{\text{source Gaussian}}
 \underbrace{e^{-2\pi i(m-n)s\,\pi^2/(A\Delta_v)}}_{\text{source phase}}
 \]
 \[
-\bar{x}_{mn} = x - \tfrac{(m+n)\lambda z}{2d},\qquad
-A(z) = \tfrac{(\lambda z)^2}{2\sigma_I^2} + \tfrac{\pi^2}{\Delta_v},\qquad
-\Delta_v = \tfrac{1}{8\sigma_I^2} + \tfrac{1}{2\sigma_c^2}
+\bar{x}_{mn} = x - \tfrac{(m+n)\zeta_0}{2},\qquad
+A(\zeta_0) = \tfrac{\zeta_0^2}{2\sigma_I^2} + \tfrac{\pi^2}{\Delta_v},\qquad
+\Delta_v = \tfrac{1}{8\sigma_I^2} + \tfrac{1}{2\sigma_c^2},\qquad
+\zeta_0 = \frac{z}{T_L(v_0)},\quad
+T_L(v_0) = \frac{d^2}{\lambda_0},\quad
+\lambda_0 = \frac{h}{m_{\rm Mu}v_0}
 \]
 </div>
 
