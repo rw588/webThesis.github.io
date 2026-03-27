@@ -414,6 +414,7 @@
   <button class="tab-btn" data-target="panel-micro-wigner">Microfluidic Wigner</button>
   <button class="tab-btn" data-target="panel-chromatic">Chromatic Wigner</button>
   <button class="tab-btn" data-target="panel-velocity">Velocity Distribution</button>
+  <button class="tab-btn" data-target="panel-xray">X-ray Budget</button>
   <button class="tab-btn" data-target="panel-math">Derivations</button>
   <button class="tab-btn" data-target="panel-refs">References</button>
 </nav>
@@ -472,6 +473,11 @@
           <div class="card-icon">∫</div>
           <h3>Full Derivation</h3>
           <p>Step-by-step derivation: CSD propagation for GSM beams in the Fresnel limit.</p>
+        </div>
+        <div class="card" onclick="switchTab('panel-xray')">
+          <div class="card-icon">☢</div>
+          <h3>X-ray Budget</h3>
+          <p>Signal and noise budget for the Talbot-Lau interferometer X-ray source — flux, visibility, and detector chain parameters.</p>
         </div>
         <div class="card" onclick="switchTab('panel-refs')">
           <div class="card-icon">📚</div>
@@ -597,6 +603,26 @@
       <iframe
         src="velocityDistribution.html"
         title="Velocity Distribution &amp; Contrast"
+        scrolling="no"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </section>
+
+  <!-- ─── X-RAY BUDGET ────────────────────────────────── -->
+  <section class="tab-panel" id="panel-xray">
+    <div class="iframe-panel">
+      <div class="iframe-toolbar">
+        <div class="dot green"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <span class="filename">xray.html</span>
+        <a href="xray.html" target="_blank">↗ open standalone</a>
+      </div>
+      <iframe
+        src="xray.html"
+        title="X-ray Budget — Talbot-Lau Interferometer"
+        loading="lazy"
         scrolling="no"
         allowfullscreen
       ></iframe>
