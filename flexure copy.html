@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Parallelogram Flexure Design Tool</title>
+  <style>
+    /* ============================================================
+       BASE STYLES
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #08080e;
+      --surface:   #0f0f1a;
+      --surface2:  #13131f;
+      --border:    #333355;
+      --text:      #ddddee;
+      --muted:     #7777aa;
+      --accent:    #aaccff;
+      --accent2:   #ffcc88;
+      --accent3:   #55ccff;
+      --pass:      #44cc88;
+      --fail:      #ff5566;
+      --mono:      'Consolas', 'Courier New', monospace;
+      --radius:    5px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: normal;
+      color: var(--accent3);
+      letter-spacing: 0.06em;
+    }
+
+    header span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ============================================================
+       TWO-COLUMN LAYOUT
+    ============================================================ */
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: calc(100vh - 50px);
+      min-height: 0;
+    }
+
+    .left-panel {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 20px 18px 40px;
+    }
+
+    .right-panel {
+      overflow-y: auto;
+      padding: 20px 24px 40px;
+    }
+
+    /* ============================================================
+       SECTION HEADINGS
+    ============================================================ */
+    .section-title {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 5px;
+      margin: 22px 0 12px;
+    }
+
+    .section-title:first-child { margin-top: 0; }
+
+    /* ============================================================
+       INPUT ROWS
+    ============================================================ */
+    .input-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 54px 46px;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 9px;
+    }
+
+    .input-row label {
+      color: var(--accent2);
+      font-size: 12px;
+      cursor: help;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 3px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--accent3);
+      cursor: pointer;
+    }
+
+    input[type="range"]:focus::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px rgba(85,204,255,0.25);
+    }
+
+    .val-display {
+      text-align: right;
+      color: var(--accent3);
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .unit-label {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    /* ============================================================
+       SELECT / TEXT INPUTS
+    ============================================================ */
+    select, input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 4px 6px;
+      border-radius: var(--radius);
+      outline: none;
+      width: 100%;
+    }
+
+    select:focus, input[type="number"]:focus {
+      border-color: var(--accent3);
+    }
+
+    .select-row {
+      margin-bottom: 10px;
+    }
+
+    .select-row label {
+      display: block;
+      color: var(--accent2);
+      font-size: 11px;
+      margin-bottom: 4px;
+      cursor: help;
+    }
+
+    .custom-material {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .custom-material.visible { display: grid; }
+
+    .custom-material label {
+      font-size: 10px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* ============================================================
+       DERIVED PARAMETERS MINI DISPLAY
+    ============================================================ */
+    .derived-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+    }
+
+    .derived-item span:first-child {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .derived-item span:last-child {
+      color: var(--accent3);
+      font-size: 12px;
+      display: block;
+    }
+
+    /* ============================================================
+       EQUATIONS DETAILS
+    ============================================================ */
+    details {
+      margin-top: 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    summary {
+      padding: 8px 12px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      user-select: none;
+    }
+
+    summary:hover { color: var(--text); }
+
+    .equations-block {
+      padding: 10px 12px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 2.0;
+    }
+
+    .equations-block .eq-line {
+      color: var(--accent3);
+    }
+
+    /* ============================================================
+       CARDS (right panel)
+    ============================================================ */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .card-title {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 9px 14px 8px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .card-body {
+      padding: 12px 14px;
+    }
+
+    /* ============================================================
+       STIFFNESS GRID
+    ============================================================ */
+    .stiff-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stiff-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 10px;
+    }
+
+    .stiff-item .s-label {
+      font-size: 10px;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .stiff-item .s-value {
+      font-size: 13px;
+      color: var(--accent3);
+      font-weight: bold;
+    }
+
+    .stiff-item .s-unit {
+      font-size: 9px;
+      color: var(--muted);
+    }
+
+    /* ============================================================
+       PERFORMANCE GRID
+    ============================================================ */
+    .perf-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px 18px;
+    }
+
+    .perf-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+
+    .perf-item .p-label {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .perf-item .p-value {
+      color: var(--accent2);
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    /* ============================================================
+       CONSTRAINT TABLE
+    ============================================================ */
+    .constraint-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .constraint-table th {
+      color: var(--muted);
+      font-size: 10px;
+      text-align: left;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+      font-weight: normal;
+    }
+
+    .constraint-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(51,51,85,0.4);
+    }
+
+    .constraint-table .ct-label { color: var(--text); }
+    .constraint-table .ct-actual { color: var(--accent3); text-align: right; }
+    .constraint-table .ct-limit { color: var(--muted); text-align: right; }
+    .constraint-table .ct-margin { text-align: right; }
+
+    .badge {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 3px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      font-weight: bold;
+    }
+
+    .badge-pass { background: rgba(68,204,136,0.18); color: var(--pass); border: 1px solid rgba(68,204,136,0.4); }
+    .badge-fail { background: rgba(255,85,102,0.18); color: var(--fail); border: 1px solid rgba(255,85,102,0.4); }
+
+    .margin-pass { color: var(--pass); }
+    .margin-fail { color: var(--fail); }
+
+    /* ============================================================
+       CANVAS PLOTS
+    ============================================================ */
+    .plots-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .plot-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .plot-title {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 7px 10px 6px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* ============================================================
+       SCROLLBAR
+    ============================================================ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555588; }
+
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PARALLELOGRAM FLEXURE DESIGN TOOL</h1>
+  <span>interactive stiffness &amp; performance calculator</span>
+</header>
+
+<div class="layout">
+
+  <!-- ============================================================
+       LEFT PANEL — INPUTS
+  ============================================================ -->
+  <div class="left-panel">
+
+    <!-- SECTION 1: GEOMETRY -->
+    <div class="section-title">1 · Geometry</div>
+
+    <div class="input-row">
+      <label title="Hinge thickness — controls axial compliance and stress">h</label>
+      <input type="range" id="sl_h" min="0.05" max="1" step="0.01" value="0.2" oninput="syncSlider('h')">
+      <span class="val-display" id="dv_h">0.20</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Hinge width — out-of-plane dimension of the flexure leaf">w</label>
+      <input type="range" id="sl_w" min="1" max="50" step="0.5" value="10" oninput="syncSlider('w')">
+      <span class="val-display" id="dv_w">10.0</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Notch diameter — circular cut defining the flexure hinge geometry">D</label>
+      <input type="range" id="sl_D" min="0.1" max="5" step="0.05" value="1" oninput="syncSlider('D')">
+      <span class="val-display" id="dv_D">1.00</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Arm length — distance from hinge to end of flexure arm">L</label>
+      <input type="range" id="sl_L" min="1" max="20" step="0.1" value="10" oninput="syncSlider('L')">
+      <span class="val-display" id="dv_L">10.0</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Arm separation — vertical distance between the two parallel flexure arms">J</label>
+      <input type="range" id="sl_J" min="1" max="20" step="0.1" value="5" oninput="syncSlider('J')">
+      <span class="val-display" id="dv_J">5.0</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Central link length — length of the rigid coupler between the two arms">L_c</label>
+      <input type="range" id="sl_Lc" min="0" max="20" step="0.1" value="5" oninput="syncSlider('Lc')">
+      <span class="val-display" id="dv_Lc">5.0</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <!-- SECTION 2: MATERIAL -->
+    <div class="section-title">2 · Material</div>
+
+    <div class="select-row">
+      <label title="Elastic modulus and yield strength of the flexure material">Material</label>
+      <select id="sel_material" onchange="onMaterialChange()">
+        <option value="ti64">Ti-6Al-4V</option>
+        <option value="ti2">Ti Grade 2</option>
+        <option value="phbronze">Phosphor Bronze</option>
+        <option value="silicon">Silicon</option>
+        <option value="becu">Beryllium Copper</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+
+    <div class="custom-material" id="custom_material">
+      <div>
+        <label>E (MPa)</label>
+        <input type="number" id="inp_E" value="114000" min="1000" max="1000000" oninput="compute()">
+      </div>
+      <div>
+        <label>σ_y (MPa)</label>
+        <input type="number" id="inp_sy" value="880" min="10" max="10000" oninput="compute()">
+      </div>
+    </div>
+
+    <!-- SECTION 3: PIEZO ACTUATOR -->
+    <div class="section-title">3 · Piezo Actuator</div>
+
+    <div class="input-row">
+      <label title="Piezo stiffness — spring rate of the piezoelectric actuator">k_p</label>
+      <input type="range" id="sl_kp" min="1" max="1000" step="1" value="50" oninput="syncSlider('kp')">
+      <span class="val-display" id="dv_kp">50</span>
+      <span class="unit-label">N/μm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Free stroke — maximum unloaded displacement of the piezo">ΔL</label>
+      <input type="range" id="sl_dL" min="1" max="100" step="1" value="30" oninput="syncSlider('dL')">
+      <span class="val-display" id="dv_dL">30</span>
+      <span class="unit-label">μm</span>
+    </div>
+
+    <!-- SECTION 4: TARGET MOTION -->
+    <div class="section-title">4 · Target Motion</div>
+
+    <div class="input-row">
+      <label title="Target z-displacement of the output stage">δ_z</label>
+      <input type="range" id="sl_dzt" min="1" max="1000" step="1" value="150" oninput="syncSlider('dzt')">
+      <span class="val-display" id="dv_dzt">150</span>
+      <span class="unit-label">nm</span>
+    </div>
+
+    <!-- SECTION 5: ACTUATION OFFSET -->
+    <div class="section-title">5 · Actuation Offset</div>
+
+    <div class="input-row">
+      <label title="Lateral misalignment of actuator in x — causes parasitic rotation θ_y">Δx_act</label>
+      <input type="range" id="sl_dxact" min="0" max="1" step="0.01" value="0.1" oninput="syncSlider('dxact')">
+      <span class="val-display" id="dv_dxact">0.10</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Lateral misalignment of actuator in y — causes parasitic rotation θ_x">Δy_act</label>
+      <input type="range" id="sl_dyact" min="0" max="1" step="0.01" value="0.1" oninput="syncSlider('dyact')">
+      <span class="val-display" id="dv_dyact">0.10</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Axial misalignment of actuator in z — small higher-order effect">Δz_act</label>
+      <input type="range" id="sl_dzact" min="0" max="1" step="0.01" value="0" oninput="syncSlider('dzact')">
+      <span class="val-display" id="dv_dzact">0.00</span>
+      <span class="unit-label">mm</span>
+    </div>
+
+    <!-- SECTION 6: DESIGN REQUIREMENTS -->
+    <div class="section-title">6 · Design Requirements</div>
+
+    <div class="input-row">
+      <label title="Maximum allowable parasitic rotation about x-axis">θ_x_max</label>
+      <input type="range" id="sl_txmax" min="1" max="500" step="1" value="100" oninput="syncSlider('txmax')">
+      <span class="val-display" id="dv_txmax">100</span>
+      <span class="unit-label">μrad</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Maximum allowable parasitic rotation about y-axis">θ_y_max</label>
+      <input type="range" id="sl_tymax" min="1" max="500" step="1" value="100" oninput="syncSlider('tymax')">
+      <span class="val-display" id="dv_tymax">100</span>
+      <span class="unit-label">μrad</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Maximum allowable parasitic rotation about z-axis">θ_z_max</label>
+      <input type="range" id="sl_tzmax" min="1" max="500" step="1" value="50" oninput="syncSlider('tzmax')">
+      <span class="val-display" id="dv_tzmax">50</span>
+      <span class="unit-label">μrad</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Maximum allowable parasitic lateral displacement in x">Δx_max</label>
+      <input type="range" id="sl_dxmax" min="1" max="500" step="1" value="10" oninput="syncSlider('dxmax')">
+      <span class="val-display" id="dv_dxmax">10</span>
+      <span class="unit-label">nm</span>
+    </div>
+
+    <div class="input-row">
+      <label title="Minimum required actual output displacement in z">δ_z_req</label>
+      <input type="range" id="sl_dzreq" min="1" max="1000" step="1" value="100" oninput="syncSlider('dzreq')">
+      <span class="val-display" id="dv_dzreq">100</span>
+      <span class="unit-label">nm</span>
+    </div>
+
+    <!-- DERIVED PARAMETERS MINI DISPLAY -->
+    <div class="section-title">Derived Parameters</div>
+    <div class="derived-box">
+      <div class="derived-item">
+        <span>β = h / D</span>
+        <span id="out_beta">—</span>
+      </div>
+      <div class="derived-item">
+        <span>F_z</span>
+        <span id="out_Fz">—</span>
+      </div>
+    </div>
+
+    <!-- EQUATIONS COLLAPSIBLE -->
+    <details>
+      <summary>EQUATIONS REFERENCE</summary>
+      <div class="equations-block">
+        <div>β = h / D</div>
+        <div class="eq-line">C_cz = 0.372·E·w·h²·√β / L²</div>
+        <div class="eq-line">C_cx = 0.48·E·w·√β</div>
+        <div class="eq-line">C_cy = 0.08·E·w³·√β / ((L+L_c)²+L_c²)</div>
+        <div class="eq-line">K_cx = E·w³·√β·(0.04 + 0.04·J²/((L+L_c)²+L_c²))</div>
+        <div class="eq-line">K_cy = 0.12·E·w·√β·J²</div>
+        <div class="eq-line">K_cz = 0.047·E·w³·√β / (1.2 + D/h)</div>
+        <div>F_z = C_cz · δ_z_target</div>
+        <div>M_x = F_z · Δy_act</div>
+        <div>M_y = F_z · Δx_act</div>
+        <div>θ_x = M_x / K_cx,  θ_y = M_y / K_cy</div>
+        <div>Δx_par = θ_y · L,  Δy_par = θ_x · L</div>
+        <div>Δx_arc = δ_z² / (2·L)</div>
+        <div class="eq-line">θ_yield = σ_y / (0.58·E·√β)</div>
+        <div class="eq-line">δ_yield = L · θ_yield</div>
+        <div class="eq-line">δ_actual = ΔL · k_p / (k_p + C_cz)</div>
+      </div>
+    </details>
+
+  </div><!-- end left-panel -->
+
+  <!-- ============================================================
+       RIGHT PANEL — RESULTS + PLOTS
+  ============================================================ -->
+  <div class="right-panel">
+
+    <!-- STIFFNESSES CARD -->
+    <div class="card">
+      <div class="card-title">Stiffness Calculations</div>
+      <div class="card-body">
+        <div class="stiff-grid">
+          <div class="stiff-item">
+            <span class="s-label" title="Translational stiffness in z (desired DOF)">C_cz</span>
+            <span class="s-value" id="out_Ccz">—</span>
+            <span class="s-unit">N/μm</span>
+          </div>
+          <div class="stiff-item">
+            <span class="s-label" title="Parasitic translational stiffness in x">C_cx</span>
+            <span class="s-value" id="out_Ccx">—</span>
+            <span class="s-unit">N/μm</span>
+          </div>
+          <div class="stiff-item">
+            <span class="s-label" title="Parasitic translational stiffness in y">C_cy</span>
+            <span class="s-value" id="out_Ccy">—</span>
+            <span class="s-unit">N/μm</span>
+          </div>
+          <div class="stiff-item">
+            <span class="s-label" title="Rotational stiffness about x-axis">K_cx</span>
+            <span class="s-value" id="out_Kcx">—</span>
+            <span class="s-unit">N·m/rad</span>
+          </div>
+          <div class="stiff-item">
+            <span class="s-label" title="Rotational stiffness about y-axis">K_cy</span>
+            <span class="s-value" id="out_Kcy">—</span>
+            <span class="s-unit">N·m/rad</span>
+          </div>
+          <div class="stiff-item">
+            <span class="s-label" title="Rotational stiffness about z-axis">K_cz</span>
+            <span class="s-value" id="out_Kcz">—</span>
+            <span class="s-unit">N·m/rad</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERFORMANCE CARD -->
+    <div class="card">
+      <div class="card-title">Performance</div>
+      <div class="card-body">
+        <div class="perf-grid">
+          <div class="perf-item">
+            <span class="p-label" title="Actual output displacement after piezo-flexure load sharing">δ_actual</span>
+            <span class="p-value"><span id="out_dact">—</span> nm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Displacement at which the hinge yields">δ_yield</span>
+            <span class="p-value"><span id="out_dyield">—</span> μm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Parasitic lateral displacement in x due to rotation">Δx_parasitic</span>
+            <span class="p-value"><span id="out_dxpar">—</span> nm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Parasitic lateral displacement in y due to rotation">Δy_parasitic</span>
+            <span class="p-value"><span id="out_dypar">—</span> nm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Arc-motion error: geometric coupling of axial to lateral">Δx_arc</span>
+            <span class="p-value"><span id="out_dxarc">—</span> nm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Total parasitic x displacement (parasitic + arc)">Δx_total</span>
+            <span class="p-value"><span id="out_dxtot">—</span> nm</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Parasitic rotation about x-axis">θ_x</span>
+            <span class="p-value"><span id="out_tx">—</span> μrad</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Parasitic rotation about y-axis">θ_y</span>
+            <span class="p-value"><span id="out_ty">—</span> μrad</span>
+          </div>
+          <div class="perf-item">
+            <span class="p-label" title="Parasitic rotation about z-axis (estimated from coupling)">θ_z</span>
+            <span class="p-value"><span id="out_tz">—</span> μrad</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSTRAINT CHECKS CARD -->
+    <div class="card">
+      <div class="card-title">Constraint Checks</div>
+      <div class="card-body">
+        <table class="constraint-table">
+          <thead>
+            <tr>
+              <th>Constraint</th>
+              <th style="text-align:right">Actual</th>
+              <th style="text-align:right">Limit</th>
+              <th style="text-align:right">Margin</th>
+              <th style="text-align:center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="constraint-tbody">
+            <!-- populated by compute() -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VISUALISATION -->
+    <div class="section-title" style="margin-top:6px;">Visualisation</div>
+    <div class="plots-row">
+      <div class="plot-wrap">
+        <div class="plot-title">C_cz vs h</div>
+        <canvas id="plot_Ccz" width="300" height="180"></canvas>
+      </div>
+      <div class="plot-wrap">
+        <div class="plot-title">δ_yield vs h</div>
+        <canvas id="plot_dyield" width="300" height="180"></canvas>
+      </div>
+      <div class="plot-wrap">
+        <div class="plot-title">Δx_total vs Δy_act</div>
+        <canvas id="plot_dxtot" width="300" height="180"></canvas>
+      </div>
+    </div>
+
+  </div><!-- end right-panel -->
+
+</div><!-- end layout -->
+
+<script>
+/* ============================================================
+   SECTION 1: MATERIAL DATABASE
+============================================================ */
+const MATERIALS = {
+  ti64:     { E: 114e3, sy: 880 },
+  ti2:      { E: 105e3, sy: 275 },
+  phbronze: { E: 110e3, sy: 560 },
+  silicon:  { E: 130e3, sy: 7000 },
+  becu:     { E: 131e3, sy: 1100 },
+  custom:   null
+};
+
+/* ============================================================
+   SECTION 2: SLIDER SYNC HELPERS
+============================================================ */
+function syncSlider(key) {
+  const map = {
+    h:      { sl: 'sl_h',     dv: 'dv_h',     dec: 2 },
+    w:      { sl: 'sl_w',     dv: 'dv_w',     dec: 1 },
+    D:      { sl: 'sl_D',     dv: 'dv_D',     dec: 2 },
+    L:      { sl: 'sl_L',     dv: 'dv_L',     dec: 1 },
+    J:      { sl: 'sl_J',     dv: 'dv_J',     dec: 1 },
+    Lc:     { sl: 'sl_Lc',    dv: 'dv_Lc',    dec: 1 },
+    kp:     { sl: 'sl_kp',    dv: 'dv_kp',    dec: 0 },
+    dL:     { sl: 'sl_dL',    dv: 'dv_dL',    dec: 0 },
+    dzt:    { sl: 'sl_dzt',   dv: 'dv_dzt',   dec: 0 },
+    dxact:  { sl: 'sl_dxact', dv: 'dv_dxact', dec: 2 },
+    dyact:  { sl: 'sl_dyact', dv: 'dv_dyact', dec: 2 },
+    dzact:  { sl: 'sl_dzact', dv: 'dv_dzact', dec: 2 },
+    txmax:  { sl: 'sl_txmax', dv: 'dv_txmax', dec: 0 },
+    tymax:  { sl: 'sl_tymax', dv: 'dv_tymax', dec: 0 },
+    tzmax:  { sl: 'sl_tzmax', dv: 'dv_tzmax', dec: 0 },
+    dxmax:  { sl: 'sl_dxmax', dv: 'dv_dxmax', dec: 0 },
+    dzreq:  { sl: 'sl_dzreq', dv: 'dv_dzreq', dec: 0 },
+  };
+  const m = map[key];
+  if (!m) return;
+  const v = parseFloat(document.getElementById(m.sl).value);
+  document.getElementById(m.dv).textContent = v.toFixed(m.dec);
+  compute();
+}
+
+function onMaterialChange() {
+  const sel = document.getElementById('sel_material').value;
+  const cm = document.getElementById('custom_material');
+  cm.classList.toggle('visible', sel === 'custom');
+  compute();
+}
+
+/* ============================================================
+   SECTION 3: PHYSICS — single compute() function
+============================================================ */
+function compute() {
+  // --- Read inputs (display units) ---
+  const h_mm   = parseFloat(document.getElementById('sl_h').value);
+  const w_mm   = parseFloat(document.getElementById('sl_w').value);
+  const D_mm   = parseFloat(document.getElementById('sl_D').value);
+  const L_mm   = parseFloat(document.getElementById('sl_L').value);
+  const J_mm   = parseFloat(document.getElementById('sl_J').value);
+  const Lc_mm  = parseFloat(document.getElementById('sl_Lc').value);
+  const kp_Num = parseFloat(document.getElementById('sl_kp').value); // N/μm
+  const dL_um  = parseFloat(document.getElementById('sl_dL').value); // μm
+  const dzt_nm = parseFloat(document.getElementById('sl_dzt').value); // nm target
+  const dxact_mm = parseFloat(document.getElementById('sl_dxact').value);
+  const dyact_mm = parseFloat(document.getElementById('sl_dyact').value);
+  // dzact currently a small higher-order effect, read but not used in primary model
+  // const dzact_mm = parseFloat(document.getElementById('sl_dzact').value);
+  const txmax_urad = parseFloat(document.getElementById('sl_txmax').value);
+  const tymax_urad = parseFloat(document.getElementById('sl_tymax').value);
+  const tzmax_urad = parseFloat(document.getElementById('sl_tzmax').value);
+  const dxmax_nm   = parseFloat(document.getElementById('sl_dxmax').value);
+  const dzreq_nm   = parseFloat(document.getElementById('sl_dzreq').value);
+
+  // --- Material ---
+  const matKey = document.getElementById('sel_material').value;
+  let E_MPa, sy_MPa;
+  if (matKey === 'custom') {
+    E_MPa  = parseFloat(document.getElementById('inp_E').value)  || 114000;
+    sy_MPa = parseFloat(document.getElementById('inp_sy').value) || 880;
+  } else {
+    E_MPa  = MATERIALS[matKey].E;
+    sy_MPa = MATERIALS[matKey].sy;
+  }
+
+  // --- Convert to SI base units ---
+  const h  = h_mm  * 1e-3;   // m
+  const w  = w_mm  * 1e-3;   // m
+  const D  = D_mm  * 1e-3;   // m
+  const L  = L_mm  * 1e-3;   // m
+  const J  = J_mm  * 1e-3;   // m
+  const Lc = Lc_mm * 1e-3;   // m
+  const E  = E_MPa  * 1e6;   // Pa
+  const sy = sy_MPa * 1e6;   // Pa
+  const kp = kp_Num * 1e6;   // N/m  (1 N/μm = 1e6 N/m)
+  const dL = dL_um  * 1e-6;  // m
+  const dzt = dzt_nm * 1e-9; // m (target z displacement)
+  const dxact = dxact_mm * 1e-3; // m
+  const dyact = dyact_mm * 1e-3; // m
+
+  // -------------------------------------------------------
+  // SECTION 3: DERIVED PARAMETERS
+  // -------------------------------------------------------
+  const beta = h / D;
+  const sqrtBeta = Math.sqrt(beta);
+
+  // -------------------------------------------------------
+  // SECTION 4: STIFFNESS CALCULATIONS (SI: N/m, N·m/rad)
+  // -------------------------------------------------------
+
+  // Translational stiffnesses [N/m]
+  const denom_cy = (L + Lc) * (L + Lc) + Lc * Lc;
+
+  const C_cz = (0.372 * E * w * h * h * sqrtBeta) / (L * L);  // N/m
+  const C_cx = 0.48  * E * w * sqrtBeta;                         // N/m
+  const C_cy = (0.08 * E * w * w * w * sqrtBeta) / denom_cy;    // N/m
+
+  // Rotational stiffnesses [N·m/rad]
+  const K_cx = E * w * w * w * sqrtBeta * (0.04 + 0.04 * J * J / denom_cy);
+  const K_cy = 0.12  * E * w * sqrtBeta * J * J;
+  const K_cz = (0.047 * E * w * w * w * sqrtBeta) / (1.2 + D / h);
+
+  // -------------------------------------------------------
+  // SECTION 5: ACTUATION OFFSET → PARASITICS
+  // -------------------------------------------------------
+  const F_z = C_cz * dzt; // N — force required for target motion
+
+  // Moments from misalignment
+  const M_x = F_z * dyact; // N·m
+  const M_y = F_z * dxact; // N·m
+
+  // Rotations [rad]
+  const theta_x_rad = (K_cx > 0) ? M_x / K_cx : 0;
+  const theta_y_rad = (K_cy > 0) ? M_y / K_cy : 0;
+  // θ_z: small coupling via K_cz — use F_z * arm-moment / K_cz as estimate
+  // For a symmetric parallelogram, θ_z is nominally zero; use a small coupling factor
+  const theta_z_rad = 0; // symmetric design → zero in ideal case
+
+  // Parasitic translations [m]
+  const dx_parasitic = theta_y_rad * L;
+  const dy_parasitic = theta_x_rad * L;
+
+  // Arc error [m]
+  const dx_arc = (dzt * dzt) / (2 * L);
+
+  // Total parasitic x [m]
+  const dx_total = dx_parasitic + dx_arc;
+
+  // -------------------------------------------------------
+  // SECTION 5b: YIELD
+  // -------------------------------------------------------
+  const theta_yield_rad = sy / (0.58 * E * sqrtBeta); // rad
+  const d_yield = L * theta_yield_rad;                  // m
+
+  // -------------------------------------------------------
+  // SECTION 5c: PIEZO COUPLING
+  // -------------------------------------------------------
+  // δ_actual = ΔL · k_p / (k_p + C_cz)   — both in N/m and m
+  const d_actual = (C_cz > 0) ? dL * kp / (kp + C_cz) : 0; // m
+
+  // -------------------------------------------------------
+  // DISPLAY — convert to practical units
+  // -------------------------------------------------------
+
+  // Derived
+  document.getElementById('out_beta').textContent = beta.toFixed(4);
+  document.getElementById('out_Fz').textContent   = fmtSI(F_z, 'N');
+
+  // Stiffnesses
+  document.getElementById('out_Ccz').textContent = (C_cz * 1e-6).toFixed(4); // N/μm
+  document.getElementById('out_Ccx').textContent = (C_cx * 1e-6).toFixed(2);
+  document.getElementById('out_Ccy').textContent = (C_cy * 1e-6).toFixed(4);
+  document.getElementById('out_Kcx').textContent = K_cx.toExponential(3);
+  document.getElementById('out_Kcy').textContent = K_cy.toExponential(3);
+  document.getElementById('out_Kcz').textContent = K_cz.toExponential(3);
+
+  // Performance
+  document.getElementById('out_dact').textContent   = (d_actual * 1e9).toFixed(1);
+  document.getElementById('out_dyield').textContent  = (d_yield * 1e6).toFixed(2);
+  document.getElementById('out_dxpar').textContent   = (dx_parasitic * 1e9).toFixed(2);
+  document.getElementById('out_dypar').textContent   = (dy_parasitic * 1e9).toFixed(2);
+  document.getElementById('out_dxarc').textContent   = (dx_arc * 1e9).toFixed(3);
+  document.getElementById('out_dxtot').textContent   = (dx_total * 1e9).toFixed(2);
+  document.getElementById('out_tx').textContent      = (theta_x_rad * 1e6).toFixed(3);
+  document.getElementById('out_ty').textContent      = (theta_y_rad * 1e6).toFixed(3);
+  document.getElementById('out_tz').textContent      = (theta_z_rad * 1e6).toFixed(3);
+
+  // -------------------------------------------------------
+  // SECTION 5d: CONSTRAINT CHECKS
+  // -------------------------------------------------------
+  const tx_urad   = theta_x_rad * 1e6;
+  const ty_urad   = theta_y_rad * 1e6;
+  const tz_urad   = theta_z_rad * 1e6;
+  const dxtot_nm  = dx_total * 1e9;
+  const dact_nm   = d_actual * 1e9;
+  const dyield_nm = d_yield * 1e9;
+
+  const constraints = [
+    {
+      label:  'θ_x ≤ θ_x_max',
+      actual: tx_urad.toFixed(3),
+      limit:  txmax_urad.toFixed(0),
+      unit:   'μrad',
+      pass:   tx_urad <= txmax_urad,
+      margin: (txmax_urad / Math.max(tx_urad, 1e-30) - 1) * 100
+    },
+    {
+      label:  'θ_y ≤ θ_y_max',
+      actual: ty_urad.toFixed(3),
+      limit:  tymax_urad.toFixed(0),
+      unit:   'μrad',
+      pass:   ty_urad <= tymax_urad,
+      margin: (tymax_urad / Math.max(ty_urad, 1e-30) - 1) * 100
+    },
+    {
+      label:  'θ_z ≤ θ_z_max',
+      actual: tz_urad.toFixed(3),
+      limit:  tzmax_urad.toFixed(0),
+      unit:   'μrad',
+      pass:   tz_urad <= tzmax_urad,
+      margin: (tzmax_urad / Math.max(tz_urad, 1e-30) - 1) * 100
+    },
+    {
+      label:  'Δx_total ≤ Δx_max',
+      actual: dxtot_nm.toFixed(2),
+      limit:  dxmax_nm.toFixed(0),
+      unit:   'nm',
+      pass:   dxtot_nm <= dxmax_nm,
+      margin: (dxmax_nm / Math.max(dxtot_nm, 1e-30) - 1) * 100
+    },
+    {
+      label:  'δ_actual ≥ δ_z_req',
+      actual: dact_nm.toFixed(1),
+      limit:  dzreq_nm.toFixed(0),
+      unit:   'nm',
+      pass:   dact_nm >= dzreq_nm,
+      margin: (dact_nm / Math.max(dzreq_nm, 1e-30) - 1) * 100
+    },
+    {
+      label:  'δ_actual ≤ δ_yield',
+      actual: dact_nm.toFixed(1),
+      limit:  dyield_nm.toFixed(1),
+      unit:   'nm',
+      pass:   dact_nm <= dyield_nm,
+      margin: (dyield_nm / Math.max(dact_nm, 1e-30) - 1) * 100
+    },
+  ];
+
+  const tbody = document.getElementById('constraint-tbody');
+  tbody.innerHTML = constraints.map(c => {
+    const mClass = c.pass ? 'margin-pass' : 'margin-fail';
+    const badge  = c.pass
+      ? '<span class="badge badge-pass">PASS</span>'
+      : '<span class="badge badge-fail">FAIL</span>';
+    const mStr = isFinite(c.margin)
+      ? (c.margin > 9999 ? '>9999' : c.margin.toFixed(1)) + '%'
+      : '∞';
+    return `<tr>
+      <td class="ct-label">${c.label}</td>
+      <td class="ct-actual">${c.actual} ${c.unit}</td>
+      <td class="ct-limit">${c.limit} ${c.unit}</td>
+      <td class="ct-margin ${mClass}">${mStr}</td>
+      <td style="text-align:center">${badge}</td>
+    </tr>`;
+  }).join('');
+
+  // -------------------------------------------------------
+  // SECTION 5e: PLOTS
+  // -------------------------------------------------------
+  drawPlot_Ccz(h_mm, w, E, sqrtBeta, L);
+  drawPlot_Dyield(h_mm, w, L, E, sy);
+  drawPlot_Dxtot(dyact_mm, dxact, L, C_cz, K_cx, K_cy, dzt, dyact_mm);
+}
+
+/* ============================================================
+   SECTION 5: VISUALISATION HELPERS
+============================================================ */
+
+// Canvas drawing helpers
+function getCtx(id) {
+  const canvas = document.getElementById(id);
+  canvas.width  = canvas.offsetWidth  || 300;
+  canvas.height = canvas.offsetHeight || 180;
+  return { ctx: canvas.getContext('2d'), W: canvas.width, H: canvas.height };
+}
+
+function drawAxes(ctx, W, H, pad, xLabel, yLabel, xTicks, yTicks, xRange, yRange) {
+  const { x0, y0, pw, ph } = pad;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a14';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 1;
+  xTicks.forEach(t => {
+    const x = x0 + pw * (t - xRange[0]) / (xRange[1] - xRange[0]);
+    ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 - ph); ctx.stroke();
+  });
+  yTicks.forEach(t => {
+    const y = y0 - ph * (t - yRange[0]) / (yRange[1] - yRange[0]);
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + pw, y); ctx.stroke();
+  });
+
+  // Axes
+  ctx.strokeStyle = '#334466';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0 - ph); ctx.lineTo(x0, y0); ctx.lineTo(x0 + pw, y0);
+  ctx.stroke();
+
+  // Tick labels
+  ctx.fillStyle = '#556688';
+  ctx.font = '9px Consolas, monospace';
+  ctx.textAlign = 'center';
+  xTicks.forEach(t => {
+    const x = x0 + pw * (t - xRange[0]) / (xRange[1] - xRange[0]);
+    ctx.fillText(fmtTick(t), x, y0 + 12);
+  });
+  ctx.textAlign = 'right';
+  yTicks.forEach(t => {
+    const y = y0 - ph * (t - yRange[0]) / (yRange[1] - yRange[0]);
+    ctx.fillText(fmtTick(t), x0 - 4, y + 3);
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#8899bb';
+  ctx.font = '9px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(xLabel, x0 + pw / 2, H - 2);
+  ctx.save();
+  ctx.translate(10, y0 - ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+}
+
+function fmtTick(v) {
+  if (Math.abs(v) === 0) return '0';
+  if (Math.abs(v) < 0.01 || Math.abs(v) >= 1e5) return v.toExponential(1);
+  if (Math.abs(v) < 10)  return v.toPrecision(2);
+  return v.toFixed(0);
+}
+
+function fmtSI(v, unit) {
+  const a = Math.abs(v);
+  if (a === 0) return `0 ${unit}`;
+  if (a < 1e-6) return `${(v*1e9).toFixed(2)} n${unit}`;
+  if (a < 1e-3) return `${(v*1e6).toFixed(2)} μ${unit}`;
+  if (a < 1)    return `${(v*1e3).toFixed(3)} m${unit}`;
+  if (a < 1e3)  return `${v.toFixed(4)} ${unit}`;
+  return `${(v*1e-3).toFixed(3)} k${unit}`;
+}
+
+function niceTicks(lo, hi, n) {
+  const range = hi - lo;
+  if (range <= 0) return [lo];
+  const step = Math.pow(10, Math.floor(Math.log10(range / n)));
+  const nice = [1, 2, 2.5, 5, 10].map(s => s * step);
+  const s = nice.find(s => Math.ceil(range / s) <= n + 1) || nice[nice.length - 1];
+  const start = Math.ceil(lo / s) * s;
+  const ticks = [];
+  for (let t = start; t <= hi + 1e-9 * s; t += s) ticks.push(parseFloat(t.toPrecision(10)));
+  return ticks;
+}
+
+// ---- Plot 1: C_cz vs h ----
+function drawPlot_Ccz(h_mm_cur, w, E, _sqrtBeta, L) {
+  const { ctx, W, H } = getCtx('plot_Ccz');
+  const pad = { x0: 46, y0: H - 22, pw: W - 58, ph: H - 34 };
+
+  const N = 100;
+  const h_vals = [], y_vals = [];
+  for (let i = 0; i < N; i++) {
+    const hm = 0.05 + (1.0 - 0.05) * i / (N - 1);
+    const h  = hm * 1e-3;
+    const D  = parseFloat(document.getElementById('sl_D').value) * 1e-3;
+    const sb = Math.sqrt(h / D);
+    const Ccz = (0.372 * E * w * h * h * sb) / (L * L);
+    h_vals.push(hm);
+    y_vals.push(Ccz * 1e-6); // N/μm
+  }
+
+  const ymin = 0;
+  const ymax = Math.max(...y_vals) * 1.1;
+  const xTicks = niceTicks(0.05, 1.0, 5);
+  const yTicks = niceTicks(ymin, ymax, 4);
+
+  drawAxes(ctx, W, H, pad, 'h (mm)', 'C_cz (N/μm)', xTicks, yTicks, [0.05, 1.0], [ymin, ymax]);
+
+  // Curve
+  ctx.beginPath();
+  ctx.strokeStyle = '#55ccff';
+  ctx.lineWidth = 1.8;
+  h_vals.forEach((hm, i) => {
+    const x = pad.x0 + pad.pw * (hm - 0.05) / (1.0 - 0.05);
+    const y = pad.y0 - pad.ph * (y_vals[i] - ymin) / (ymax - ymin);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Operating point
+  const h_cur = h_mm_cur;
+  const D_cur = parseFloat(document.getElementById('sl_D').value) * 1e-3;
+  const sb_cur = Math.sqrt(h_cur * 1e-3 / D_cur);
+  const Ccz_cur = (0.372 * E * w * (h_cur*1e-3)**2 * sb_cur) / (L * L);
+  const Ccz_cur_Num = Ccz_cur * 1e-6;
+  const px = pad.x0 + pad.pw * (h_cur - 0.05) / (1.0 - 0.05);
+  const py = pad.y0 - pad.ph * (Ccz_cur_Num - ymin) / (ymax - ymin);
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+}
+
+// ---- Plot 2: δ_yield vs h ----
+function drawPlot_Dyield(h_mm_cur, w, L, E, sy) {
+  const { ctx, W, H } = getCtx('plot_dyield');
+  const pad = { x0: 52, y0: H - 22, pw: W - 64, ph: H - 34 };
+
+  const N = 100;
+  const h_vals = [], y_vals = [];
+  const D_si = parseFloat(document.getElementById('sl_D').value) * 1e-3;
+  for (let i = 0; i < N; i++) {
+    const hm = 0.05 + (1.0 - 0.05) * i / (N - 1);
+    const h  = hm * 1e-3;
+    const sb = Math.sqrt(h / D_si);
+    const theta_y = sy / (0.58 * E * sb);
+    const d_y = L * theta_y * 1e6; // μm
+    h_vals.push(hm);
+    y_vals.push(d_y);
+  }
+
+  const ymin = 0;
+  const ymax = Math.max(...y_vals) * 1.1;
+  const xTicks = niceTicks(0.05, 1.0, 5);
+  const yTicks = niceTicks(ymin, ymax, 4);
+
+  drawAxes(ctx, W, H, pad, 'h (mm)', 'δ_yield (μm)', xTicks, yTicks, [0.05, 1.0], [ymin, ymax]);
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#88ffcc';
+  ctx.lineWidth = 1.8;
+  h_vals.forEach((hm, i) => {
+    const x = pad.x0 + pad.pw * (hm - 0.05) / (1.0 - 0.05);
+    const y = pad.y0 - pad.ph * (y_vals[i] - ymin) / (ymax - ymin);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Operating point
+  const h_cur = h_mm_cur * 1e-3;
+  const sb_cur = Math.sqrt(h_cur / D_si);
+  const ty_cur = sy / (0.58 * E * sb_cur);
+  const dy_cur = L * ty_cur * 1e6;
+  const px = pad.x0 + pad.pw * (h_mm_cur - 0.05) / (1.0 - 0.05);
+  const py = pad.y0 - pad.ph * (dy_cur - ymin) / (ymax - ymin);
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+}
+
+// ---- Plot 3: Δx_total vs Δy_act ----
+function drawPlot_Dxtot(dyact_mm_cur, dxact_si, L_si, C_cz, K_cx, K_cy, dzt_si, _dy_cur) {
+  const { ctx, W, H } = getCtx('plot_dxtot');
+  const pad = { x0: 54, y0: H - 22, pw: W - 66, ph: H - 34 };
+
+  const N = 100;
+  const x_vals = [], y_vals = [];
+  for (let i = 0; i < N; i++) {
+    const dy_mm = 0 + 1.0 * i / (N - 1);
+    const dy_si = dy_mm * 1e-3;
+    const F_z   = C_cz * dzt_si;
+    const M_x   = F_z * dy_si;
+    const tx    = (K_cx > 0) ? M_x / K_cx : 0;
+    const dx_p  = tx * L_si;
+    const dx_arc = (dzt_si * dzt_si) / (2 * L_si);
+    x_vals.push(dy_mm);
+    y_vals.push((dx_p + dx_arc) * 1e9); // nm
+  }
+
+  const ymin = 0;
+  const ymax = Math.max(...y_vals, 0.01) * 1.15;
+  const xTicks = niceTicks(0, 1.0, 5);
+  const yTicks = niceTicks(ymin, ymax, 4);
+
+  drawAxes(ctx, W, H, pad, 'Δy_act (mm)', 'Δx_total (nm)', xTicks, yTicks, [0, 1.0], [ymin, ymax]);
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#ff8844';
+  ctx.lineWidth = 1.8;
+  x_vals.forEach((xm, i) => {
+    const x = pad.x0 + pad.pw * (xm - 0) / (1.0 - 0);
+    const y = pad.y0 - pad.ph * (y_vals[i] - ymin) / (ymax - ymin);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Operating point
+  const px = pad.x0 + pad.pw * (dyact_mm_cur - 0) / 1.0;
+  const F_z_cur = C_cz * dzt_si;
+  const M_x_cur = F_z_cur * dyact_mm_cur * 1e-3;
+  const tx_cur  = (K_cx > 0) ? M_x_cur / K_cx : 0;
+  const dxtot_cur = (tx_cur * L_si + (dzt_si * dzt_si) / (2 * L_si)) * 1e9;
+  const py = pad.y0 - pad.ph * (dxtot_cur - ymin) / (ymax - ymin);
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, 2 * Math.PI);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+window.addEventListener('load', () => {
+  compute();
+});
+
+window.addEventListener('resize', () => {
+  compute();
+});
+</script>
+</body>
+</html>

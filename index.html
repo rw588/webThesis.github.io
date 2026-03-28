@@ -415,6 +415,7 @@
   <button class="tab-btn" data-target="panel-chromatic">Chromatic Wigner</button>
   <button class="tab-btn" data-target="panel-velocity">Velocity Distribution</button>
   <button class="tab-btn" data-target="panel-xray">X-ray Budget</button>
+  <button class="tab-btn" data-target="panel-flexure">Flexure Design</button>
   <button class="tab-btn" data-target="panel-math">Derivations</button>
   <button class="tab-btn" data-target="panel-refs">References</button>
 </nav>
@@ -478,6 +479,11 @@
           <div class="card-icon">☢</div>
           <h3>X-ray Budget</h3>
           <p>Signal and noise budget for the Talbot-Lau interferometer X-ray source — flux, visibility, and detector chain parameters.</p>
+        </div>
+        <div class="card" onclick="switchTab('panel-flexure')">
+          <div class="card-icon">⟂</div>
+          <h3>Flexure Design</h3>
+          <p>Interactive parallelogram flexure tool — all 6-DOF stiffnesses, piezo coupling, yield limits, actuation offset parasitics, and constraint pass/fail for cryogenic precision positioning.</p>
         </div>
         <div class="card" onclick="switchTab('panel-refs')">
           <div class="card-icon">📚</div>
@@ -622,6 +628,26 @@
       <iframe
         src="xray.html"
         title="X-ray Budget — Talbot-Lau Interferometer"
+        loading="lazy"
+        scrolling="no"
+        allowfullscreen
+      ></iframe>
+    </div>
+  </section>
+
+  <!-- ─── FLEXURE DESIGN ──────────────────────────────── -->
+  <section class="tab-panel" id="panel-flexure">
+    <div class="iframe-panel">
+      <div class="iframe-toolbar">
+        <div class="dot green"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <span class="filename">flexure.html</span>
+        <a href="flexure.html" target="_blank">↗ open standalone</a>
+      </div>
+      <iframe
+        src="flexure.html"
+        title="Parallelogram Flexure Design Tool"
         loading="lazy"
         scrolling="no"
         allowfullscreen
