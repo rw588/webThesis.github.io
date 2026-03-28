@@ -120,9 +120,9 @@ hr { border: none; border-top: 1px solid #334; margin: 8px 0; }
   </div>
   <div class="arrow">&#9658;</div>
   <div class="stage result">
-    <div class="stage-title">Detector (set)</div>
-    <div class="stage-val" id="ch_det">—</div>
-    <div class="stage-sub">C<sub>eff</sub>&radic;N<sub>det</sub>&nbsp;=&nbsp;<span id="ch_fom">—</span></div>
+    <div class="stage-title">C<sub>eff</sub>&radic;N (set)</div>
+    <div class="stage-val" id="ch_fom">—</div>
+    <div class="stage-sub">N<sub>det</sub>&nbsp;=&nbsp;<span id="ch_det">—</span>&nbsp;ph/s</div>
   </div>
 </div>
 
@@ -203,8 +203,8 @@ hr { border: none; border-top: 1px solid #334; margin: 8px 0; }
     <div class="info-kv"><span class="info-k">C_base:</span><span class="info-v" id="i_Cbase">—</span></div>
     <div class="info-kv"><span class="info-k">c_g per grating:</span><span class="info-v" id="i_cg2">—</span></div>
     <div class="info-kv"><span class="info-k">C_eff = C_base × c_g³:</span><span class="info-v" id="i_Ceff">—</span></div>
-    <div class="info-kv"><span class="info-k">C_eff √N_det:</span><span class="info-v" id="i_FOMtgt">—</span></div>
-    <div class="info-kv"><span class="info-k">N detected:</span><span class="info-v" id="i_Ndet">—</span></div>
+    <div class="info-kv"><span class="info-k">C_eff √N (target):</span><span class="info-v" id="i_FOMtgt">—</span></div>
+    <div class="info-kv"><span class="info-k">N detected (derived):</span><span class="info-v" id="i_Ndet">—</span></div>
     <div class="info-kv"><span class="info-k">N entering interferometer:</span><span class="info-v" id="i_Nint">—</span></div>
     <div class="info-head">Shielding</div>
     <div class="info-kv"><span class="info-k">μ Mylar at E:</span><span class="info-v" id="i_muMy">—</span></div>
@@ -245,9 +245,9 @@ hr { border: none; border-top: 1px solid #334; margin: 8px 0; }
     <div class="slider-row" style="margin-top:3px;"><label>Energy (keV)</label>
       <input type="range" id="sl_E" min="0.1" max="10" step="0.01" value="4.511">
       <span id="v_E">4.511 keV</span></div>
-    <div class="slider-row"><label>Detected flux (ph/s, log₁₀)</label>
-      <input type="range" id="sl_flux" min="4" max="14" step="0.1" value="8">
-      <span id="v_flux">1e8</span></div>
+    <div class="slider-row"><label>C<sub>eff</sub>&radic;N (FOM, log&#8321;&#8320;)</label>
+      <input type="range" id="sl_fom" min="0" max="6" step="0.1" value="3">
+      <span id="v_fom">1.0&times;10<sup>3</sup></span></div>
 
     <h3 style="margin-top:6px;">Gratings</h3>
     <div class="slider-row"><label>Grating thickness (μm)</label>
@@ -333,7 +333,7 @@ function interpMu(material, E_keV) {
 // ── state ────────────────────────────────────────────────────────────────────
 const S = {
   E_keV:   4.511,
-  flux:    1e8,   // detected flux (ph/s)
+  fom:     1e3,   // C_eff√N target (user-set)
   tg_um:   1.0,
   dc:      0.5,
   mat:     'Si',
@@ -497,16 +497,15 @@ function compute(){
   const T_win  = Math.exp(-mu_win * S.twin_um*1e-4);
   const T_My3  = T_My*T_My*T_My;
 
-  // photon chain — work backwards from user-set detected flux
-  const N_detd = S.flux;                  // user sets this
+  // photon chain — work backwards from user-set FOM target
+  const C_sqrt_N = S.fom;                                    // user sets C_eff√N
+  const N_detd   = (C_eff > 0) ? Math.pow(C_sqrt_N / C_eff, 2) : 0;  // derived
   const N_aftG = N_detd  / S.eff;         // after gratings (before detector)
   const N_aftW = N_aftG  / F3;            // after window (before gratings)
   const N_aft3 = N_aftW  / T_win;         // entering mK stage (before window)
   const N_aft2 = N_aft3  / T_My;          // after 2nd mylar
   const N_aft1 = N_aft2  / T_My;          // after 1st mylar
   const N_src  = N_aft1  / T_My;          // source
-
-  const C_sqrt_N  = C_eff * Math.sqrt(N_detd);   // fully determined by physics + detected flux
 
   // absorbed per stage
   const abs_M1  = N_src  * (1-T_My);
@@ -535,8 +534,8 @@ function compute(){
   set('ch_m3',   fmtPh(N_aft3));  set('ch_m3t', 'T='+T_My.toFixed(5));
   set('ch_win',  fmtPh(N_aftW));  set('ch_wint','T='+T_win.toFixed(5));
   set('ch_grat', fmtPh(N_aftG));  set('ch_gratt','F³='+F3.toFixed(5));
-  set('ch_det',  fmtPh(N_detd));  // user-set detected flux
-  set('ch_fom',  C_sqrt_N.toFixed(1));
+  set('ch_fom',  C_sqrt_N.toFixed(1));  // user-set FOM
+  set('ch_det',  fmtPh(N_detd));        // derived detected flux
 
   // bar chart
   const maxQ=Math.max(Q50,Q4,Q1,QmK,1e-40), bH=80;
@@ -608,8 +607,10 @@ function wireSlider(id,valId,parseFn,fmtFn,key){
   sp.innerHTML=fmtFn(S[key]);
 }
 wireSlider('sl_E',    'v_E',    v=>parseFloat(v),              v=>v.toFixed(3)+' keV',      'E_keV');
-wireSlider('sl_flux', 'v_flux', v=>Math.pow(10,parseFloat(v)), v=>{
-  const e=Math.floor(Math.log10(v)); return '10<sup>'+e+'</sup>&thinsp;ph/s'; }, 'flux');
+wireSlider('sl_fom', 'v_fom', v=>Math.pow(10,parseFloat(v)), v=>{
+  const e=Math.floor(Math.log10(Math.max(v,1e-30)));
+  const m=v/Math.pow(10,e);
+  return m.toFixed(1)+'&times;10<sup>'+e+'</sup>'; }, 'fom');
 wireSlider('sl_tg',  'v_tg',  v=>parseFloat(v), v=>v.toFixed(2)+' μm',  'tg_um');
 wireSlider('sl_dc',  'v_dc',  v=>parseFloat(v), v=>v.toFixed(2),         'dc');
 wireSlider('sl_C0',  'v_C0',  v=>parseFloat(v), v=>v.toFixed(2),         'C0');
