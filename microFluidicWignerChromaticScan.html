@@ -120,7 +120,7 @@ T_L(v_0) = \frac{d^2}{\lambda_0},\quad
     <div class="slider-row"><label>f &nbsp;(duty cycle)</label><input type="range" id="sl_f" min="0.05" max="0.95" step="0.01" value="0.5"><span id="v_f">0.50</span></div>
     <div class="slider-row"><label>p<sub>max</sub> &nbsp;(orders |m|,|n|)</label><input type="range" id="sl_Pmax" min="1" max="30" step="1" value="8"><span id="v_Pmax">8</span></div>
     <div class="slider-row"><label>&sigma;<sub>I</sub>(0)/d</label><input type="range" id="sl_sI0" min="0.3" max="30" step="0.1" value="0.5"><span id="v_sI0" style="width:130px">0.50d = 50.0nm</span></div>
-    <div class="slider-row"><label>&sigma;<sub>c</sub>(0)/d</label><input type="range" id="sl_sc0" min="0.1" max="30" step="0.1" value="0.5"><span id="v_sc0" style="width:130px">0.50d = 50.0nm</span></div>
+    <div class="slider-row"><label>&sigma;<sub>c</sub>(0)/d</label><input type="range" id="sl_sc0" min="0.025" max="30" step="0.025" value="0.5"><span id="v_sc0" style="width:130px">0.50d = 50.0nm</span></div>
     <div class="slider-row"><label>T<sub>L</sub>/R(0) &nbsp;(input curvature)</label><input type="range" id="sl_invR0" min="-0.5" max="0.5" step="0.005" value="0"><span id="v_invR0">0.000</span></div>
     <div class="slider-row"><label>d &nbsp;(grating period)</label><input type="number" id="inp_d" min="1" max="10000" step="1" value="100" style="width:70px;background:#1a1a2e;border:1px solid #446;color:#ffcc88;padding:2px 4px;font-family:Consolas;font-size:15px"><span style="width:55px;font-size:14px;color:#88aacc">nm</span></div>
   </div>
@@ -160,6 +160,45 @@ T_L(v_0) = \frac{d^2}{\lambda_0},\quad
 </div>
 <div id="progressBar"><div id="progressFill"></div></div>
 <div id="statusLine">Ready.</div>
+
+<hr>
+<div style="padding:4px 0 10px">
+  <h3 style="text-align:center;color:#aaccff;font-size:16px;margin-bottom:6px">
+    Grating Period Scan &mdash; L<sub>phys</sub>&thinsp;=&thinsp;9.6&thinsp;mm fixed
+    <span style="font-size:13px;color:#6688aa">&nbsp;(L/T<sub>L</sub>&thinsp;=&thinsp;L&lambda;/d&sup2; varies with d)</span>
+  </h3>
+  <div style="display:flex;gap:16px;justify-content:center;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+    <div class="slider-row">
+      <label>d<sub>min</sub>&nbsp;(nm)</label>
+      <input type="number" id="scan_dmin" value="500" min="10" max="50000" step="50"
+        style="width:70px;background:#1a1a2e;border:1px solid #446;color:#ffcc88;padding:2px 4px;font-family:Consolas;font-size:15px">
+    </div>
+    <div class="slider-row">
+      <label>d<sub>max</sub>&nbsp;(nm)</label>
+      <input type="number" id="scan_dmax" value="10000" min="10" max="50000" step="50"
+        style="width:70px;background:#1a1a2e;border:1px solid #446;color:#ffcc88;padding:2px 4px;font-family:Consolas;font-size:15px">
+    </div>
+    <div class="slider-row">
+      <label>Points</label>
+      <input type="range" id="scan_n" min="5" max="200" step="1" value="60" style="width:110px">
+      <span id="scan_n_val" style="width:35px;color:#ffcc88">60</span>
+    </div>
+    <button id="scanRunBtn">Run Scan</button>
+    <button id="scanStopBtn" style="display:none;background:#2a1a1a;border-color:#644;color:#ffbbbb">Stop</button>
+    <button id="scanSaveBtn" onclick="saveScanCSV()" title="Download scan results as CSV">Save CSV</button>
+  </div>
+  <div id="scanStatus" style="text-align:center;font-size:13px;color:#88aacc;margin-bottom:4px">&nbsp;</div>
+  <div class="canvas-row">
+    <div class="canvas-wrap">
+      <label>Contrast C vs d</label>
+      <canvas id="scanCCanvas" width="490" height="280"></canvas>
+    </div>
+    <div class="canvas-wrap">
+      <label>d / C vs d</label>
+      <canvas id="scanDivCCanvas" width="490" height="280"></canvas>
+    </div>
+  </div>
+</div>
 
 <script>
 // ─── Colormaps ────────────────────────────────────────────────────────────────
@@ -434,6 +473,23 @@ self.onmessage = function(e){
     return;
   }
 
+  // ── Scan single-slice (z = LNorm only, no carpet) ────────────────────────
+  if(msgType === 'scan_slice'){
+    const{Pmax,f,sI0,sc0,LNorm,invR0,xiHalf,sigVoverV0,d_nm,NX:nxS}=e.data;
+    const{sIL,sCL}=gsmPropagate(sI0,sc0,LNorm,invR0);
+    const mfA=computeFormula(Pmax,f,sIL,sCL,1,nxS,xiHalf,LNorm,LNorm,false,LNorm,sigVoverV0,null);
+    const ssA=computeFormula(Pmax,f,sIL,sCL,1,nxS,xiHalf,LNorm,LNorm,true, LNorm,sigVoverV0,null);
+    let mxM=-Infinity,mnM=Infinity,mxSS=-Infinity,mnSS=Infinity;
+    for(let ix=0;ix<nxS;ix++){
+      if(mfA[ix]>mxM)mxM=mfA[ix]; if(mfA[ix]<mnM)mnM=mfA[ix];
+      if(ssA[ix]>mxSS)mxSS=ssA[ix]; if(ssA[ix]<mnSS)mnSS=ssA[ix];
+    }
+    const C_mf=(mxM+mnM>1e-30)?(mxM-mnM)/(mxM+mnM):0;
+    const C_ss=(mxSS+mnSS>1e-30)?(mxSS-mnSS)/(mxSS+mnSS):0;
+    self.postMessage({type:'scan_result',C_mf,C_ss,LNorm,d_nm});
+    return;
+  }
+
   // ── Main analytical compute (Gaussian damping, no velocity loop) ─────────
   const{Pmax,f,sI0,sc0,LNorm,invR0,NZ,NX,xiHalf,zmin,zmax,sigVoverV0,v0} = e.data;
   const t0 = Date.now();
@@ -616,7 +672,7 @@ document.getElementById('velDistCanvas').addEventListener('click', e=>{
 function refreshPhysicalSpans(){
   const d = state.d_nm;
   const lam_nm = H_PLANCK / (M_Mu * Math.max(1, state.v0)) * 1e9;
-  const TL_nm  = d * d / lam_nm;  // Talbot length in nm
+  const TL_nm  = 2*d * d / lam_nm;  // Talbot length in nm
   // σ_I and σ_c physical spans
   document.getElementById('v_sI0').textContent = `${state.sI0.toFixed(2)}d = ${(state.sI0*d).toFixed(1)}nm`;
   document.getElementById('v_sc0').textContent = `${state.sc0.toFixed(2)}d = ${(state.sc0*d).toFixed(1)}nm`;
@@ -1260,6 +1316,297 @@ applyZoom(DEFAULTS.LNorm);
 refreshPhysicalSpans();
 renderVelDist();
 scheduleCompute();
+
+// ─── Scan: grating period d with L_phys = 9.6 mm fixed ───────────────────────
+const L_PHYS_NM = 9.6e6;   // 9.6 mm in nm (fixed physical interferometer length)
+const SCAN_NX   = 256;      // pixels per slice — enough to resolve contrast
+
+let scanWorker  = new Worker(workerURL);
+let scanRunning = false;
+let scanQueue   = [];
+let scanResults = [];  // [{d_nm, LNorm, C_mf, C_ss}, ...]
+
+document.getElementById('scan_n').addEventListener('input', function(){
+  document.getElementById('scan_n_val').textContent = this.value;
+});
+document.getElementById('scanRunBtn').addEventListener('click', runScan);
+document.getElementById('scanStopBtn').addEventListener('click', stopScan);
+
+scanWorker.onerror = function(e){
+  stopScan();
+  document.getElementById('scanStatus').textContent = 'Worker error: '+e.message;
+};
+
+scanWorker.onmessage = function(e){
+  if(e.data.type !== 'scan_result') return;
+  const{C_mf, C_ss, LNorm, d_nm} = e.data;
+  scanResults.push({d_nm, LNorm, C_mf, C_ss});
+  scanResults.sort((a,b)=>a.d_nm-b.d_nm);
+  const done  = scanResults.length;
+  const total = parseInt(document.getElementById('scan_n').value);
+  document.getElementById('scanStatus').textContent =
+    `${done}\u202f/\u202f${total}\u2002 d\u202f=\u202f${d_nm.toFixed(0)}\u202fnm\u2002 `+
+    `L/T\u1d38\u202f=\u202f${LNorm.toFixed(2)}`;
+  renderScanPlots();
+  dispatchNextScan();
+};
+
+function runScan(){
+  if(scanRunning) return;
+  scanResults = [];
+  scanQueue   = [];
+  const d_min = parseFloat(document.getElementById('scan_dmin').value) || 500;
+  const d_max = parseFloat(document.getElementById('scan_dmax').value) || 10000;
+  const n     = parseInt(document.getElementById('scan_n').value)      || 60;
+  for(let i=0; i<n; i++){
+    const t = n>1 ? i/(n-1) : 0;
+    scanQueue.push(d_min + (d_max-d_min)*t);
+  }
+  scanRunning = true;
+  document.getElementById('scanRunBtn').disabled = true;
+  document.getElementById('scanStopBtn').style.display = '';
+  document.getElementById('scanStatus').textContent = 'Starting\u2026';
+  renderScanPlots();
+  dispatchNextScan();
+}
+
+function stopScan(){
+  scanRunning = false;
+  scanQueue   = [];
+  document.getElementById('scanRunBtn').disabled = false;
+  document.getElementById('scanStopBtn').style.display = 'none';
+  document.getElementById('scanStatus').textContent =
+    scanResults.length ? `Stopped at ${scanResults.length} points.` : 'Stopped.';
+}
+
+function dispatchNextScan(){
+  if(!scanRunning || scanQueue.length === 0){
+    if(scanRunning){
+      scanRunning = false;
+      document.getElementById('scanRunBtn').disabled = false;
+      document.getElementById('scanStopBtn').style.display = 'none';
+      document.getElementById('scanStatus').textContent =
+        `Done \u2014 ${scanResults.length} points.`;
+    }
+    return;
+  }
+  const d_nm    = scanQueue.shift();
+  const lam_nm  = H_PLANCK / (M_Mu * Math.max(1, state.v0)) * 1e9;
+  const LNorm   = L_PHYS_NM * lam_nm / (d_nm * d_nm);
+  scanWorker.postMessage({
+    msgType:    'scan_slice',
+    Pmax:       state.Pmax,
+    f:          state.f,
+    sI0:        state.sI0,
+    sc0:        state.sc0,
+    LNorm,
+    invR0:      state.invR0,
+    xiHalf:     state.xiHalf,
+    sigVoverV0: state.sigV / Math.max(1, state.v0),
+    d_nm,
+    NX:         SCAN_NX,
+  });
+}
+
+// ─── Scan plot rendering ──────────────────────────────────────────────────────
+function scanAxesBase(ctx, W, H, pad, xmin, xmax, ymin, ymax, nYtick){
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  // y grid + labels
+  ctx.strokeStyle='#1e2e3e'; ctx.lineWidth=0.8;
+  for(let i=0; i<=nYtick; i++){
+    const yv = ymin + (ymax-ymin)*i/nYtick;
+    const py = pad.t + ph*(1-(yv-ymin)/(ymax-ymin));
+    ctx.beginPath(); ctx.moveTo(pad.l,py); ctx.lineTo(pad.l+pw,py); ctx.stroke();
+    ctx.fillStyle='#556677'; ctx.font='11px Consolas'; ctx.textAlign='right';
+    const s = yv>=1e6?(yv/1e6).toFixed(2)+'M': yv>=1e3?(yv/1e3).toFixed(2)+'k': yv.toFixed(3);
+    ctx.fillText(s, pad.l-3, py+4);
+  }
+  // axes
+  ctx.strokeStyle='#445566'; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ph); ctx.lineTo(pad.l+pw,pad.t+ph);
+  ctx.stroke();
+  // bottom x ticks (d in nm / μm)
+  ctx.fillStyle='#8899bb'; ctx.font='12px Consolas'; ctx.textAlign='center';
+  const nX=5;
+  for(let i=0; i<=nX; i++){
+    const dv = xmin+(xmax-xmin)*i/nX;
+    const px = pad.l + (dv-xmin)/(xmax-xmin)*pw;
+    const lab = dv>=1000 ? (dv/1000).toFixed(1)+'\u03bcm' : dv.toFixed(0)+'nm';
+    ctx.fillText(lab, px, pad.t+ph+14);
+  }
+  ctx.fillText('d', pad.l+pw/2, H-3);
+  // top x ticks: L/T_L
+  const lam_nm = H_PLANCK / (M_Mu * Math.max(1, state.v0)) * 1e9;
+  ctx.fillStyle='#6688aa'; ctx.font='11px Consolas'; ctx.textAlign='center';
+  for(let i=0; i<=nX; i++){
+    const dv = xmin+(xmax-xmin)*i/nX;
+    const px = pad.l + (dv-xmin)/(xmax-xmin)*pw;
+    const ln = L_PHYS_NM * lam_nm / (dv*dv);
+    const ls = ln>=100?ln.toFixed(0): ln>=10?ln.toFixed(1): ln.toFixed(2);
+    ctx.fillText(ls, px, pad.t-5);
+  }
+  ctx.textAlign='right';
+  ctx.fillText('L/T\u1d38\u202f\u2192', pad.l-2, pad.t-5);
+  // current-d marker
+  if(state.d_nm>=xmin && state.d_nm<=xmax){
+    const px = pad.l + (state.d_nm-xmin)/(xmax-xmin)*pw;
+    ctx.strokeStyle='rgba(255,200,80,0.45)'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(px,pad.t); ctx.lineTo(px,pad.t+ph); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function renderScanC(){
+  const canvas = document.getElementById('scanCCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.fillStyle='#0a0a14'; ctx.fillRect(0,0,W,H);
+
+  if(scanResults.length < 2){
+    ctx.fillStyle='#445566'; ctx.font='14px Consolas'; ctx.textAlign='center';
+    ctx.fillText(scanRunning?'Computing\u2026':'Press Run Scan', W/2, H/2);
+    return;
+  }
+
+  const pad  = {l:50, r:16, t:34, b:46};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  const xmin = scanResults[0].d_nm, xmax = scanResults[scanResults.length-1].d_nm;
+  const toX  = d => pad.l + (d-xmin)/(xmax-xmin)*pw;
+  const toY  = c => pad.t + ph*(1 - Math.max(0,Math.min(1,c)));
+
+  scanAxesBase(ctx, W, H, pad, xmin, xmax, 0, 1, 4);
+
+  // curves
+  function plotLine(key, col){
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.8;
+    scanResults.forEach((r,i)=>{
+      const x=toX(r.d_nm), y=toY(r[key]);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  plotLine('C_ss','#50c8b0');
+  plotLine('C_mf','#c060ff');
+
+  // title
+  ctx.fillStyle='#ccddee'; ctx.font='13px Consolas'; ctx.textAlign='center';
+  ctx.fillText('Contrast C vs d  \u2014  L\u209a\u02b0\u02b8\u02e2 = 9.6\u202fmm', pad.l+pw/2, pad.t-20);
+
+  // y label
+  ctx.save(); ctx.translate(12, pad.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.fillStyle='#8899bb'; ctx.font='13px Consolas';
+  ctx.fillText('C', 0, 0); ctx.restore();
+
+  // legend
+  ctx.font='12px Consolas'; ctx.textAlign='left';
+  [['#50c8b0','Single src'],['#c060ff','Microfluidic']].forEach(([col,lbl],i)=>{
+    ctx.fillStyle=col; ctx.fillRect(pad.l+4, pad.t+6+i*14, 10, 2);
+    ctx.fillStyle='#aabbcc'; ctx.fillText(lbl, pad.l+17, pad.t+10+i*14);
+  });
+}
+
+function renderScanDivC(){
+  const canvas = document.getElementById('scanDivCCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.fillStyle='#0a0a14'; ctx.fillRect(0,0,W,H);
+
+  if(scanResults.length < 2){
+    ctx.fillStyle='#445566'; ctx.font='14px Consolas'; ctx.textAlign='center';
+    ctx.fillText(scanRunning?'Computing\u2026':'Press Run Scan', W/2, H/2);
+    return;
+  }
+
+  const MIN_C = 0.005;
+  const divC_mf = scanResults.map(r => r.C_mf > MIN_C ? r.d_nm/r.C_mf : null);
+  const divC_ss = scanResults.map(r => r.C_ss > MIN_C ? r.d_nm/r.C_ss : null);
+  const allY = [...divC_mf,...divC_ss].filter(v=>v!==null&&isFinite(v));
+  if(!allY.length){ return; }
+  const ySorted = [...allY].sort((a,b)=>a-b);
+  const ymax    = ySorted[Math.min(ySorted.length-1, Math.floor(ySorted.length*0.95))] * 1.2;
+
+  const pad  = {l:62, r:16, t:34, b:46};
+  const pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  const xmin = scanResults[0].d_nm, xmax = scanResults[scanResults.length-1].d_nm;
+  const toX  = d => pad.l + (d-xmin)/(xmax-xmin)*pw;
+  const toY  = v => pad.t + ph*(1 - Math.max(0,Math.min(1, v/ymax)));
+
+  scanAxesBase(ctx, W, H, pad, xmin, xmax, 0, ymax, 4);
+
+  // curves
+  function plotLine(vals, col){
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.8;
+    let first=true;
+    vals.forEach((v,i)=>{
+      if(v===null){ first=true; return; }
+      const x=toX(scanResults[i].d_nm), y=toY(v);
+      first ? (ctx.moveTo(x,y), first=false) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+  plotLine(divC_ss,'#50c8b0');
+  plotLine(divC_mf,'#c060ff');
+
+  // title
+  ctx.fillStyle='#ccddee'; ctx.font='13px Consolas'; ctx.textAlign='center';
+  ctx.fillText('d / C  vs  d  \u2014  L\u209a\u02b0\u02b8\u02e2 = 9.6\u202fmm', pad.l+pw/2, pad.t-20);
+
+  // y label
+  ctx.save(); ctx.translate(12, pad.t+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.fillStyle='#8899bb'; ctx.font='12px Consolas';
+  ctx.fillText('d / C  (nm)', 0, 0); ctx.restore();
+
+  // legend
+  ctx.font='12px Consolas'; ctx.textAlign='left';
+  [['#50c8b0','Single src'],['#c060ff','Microfluidic']].forEach(([col,lbl],i)=>{
+    ctx.fillStyle=col; ctx.fillRect(pad.l+4, pad.t+6+i*14, 10, 2);
+    ctx.fillStyle='#aabbcc'; ctx.fillText(lbl, pad.l+17, pad.t+10+i*14);
+  });
+}
+
+function renderScanPlots(){
+  renderScanC();
+  renderScanDivC();
+}
+
+function saveScanCSV(){
+  if(!scanResults.length){ alert('No scan data to save — run a scan first.'); return; }
+  const lam_nm = H_PLANCK / (M_Mu * Math.max(1, state.v0)) * 1e9;
+  const header = [
+    'd_nm',
+    'L_over_TL',
+    'C_single_source',
+    'C_microfluidic',
+    'd_over_C_single_source_nm',
+    'd_over_C_microfluidic_nm',
+  ].join(',');
+  const rows = scanResults.map(r => [
+    r.d_nm.toFixed(4),
+    r.LNorm.toFixed(6),
+    r.C_ss.toFixed(6),
+    r.C_mf.toFixed(6),
+    (r.C_ss > 1e-9 ? r.d_nm/r.C_ss : '').toString(),
+    (r.C_mf > 1e-9 ? r.d_nm/r.C_mf : '').toString(),
+  ].join(','));
+  const meta = [
+    `# Grating period scan — L_phys = ${(L_PHYS_NM/1e6).toFixed(2)} mm fixed`,
+    `# v0 = ${state.v0} m/s  sigma_v = ${state.sigV} m/s  lambda_dB = ${lam_nm.toFixed(4)} nm`,
+    `# f = ${state.f.toFixed(2)}  Pmax = ${state.Pmax}  sI0/d = ${state.sI0.toFixed(3)}  sc0/d = ${state.sc0.toFixed(3)}`,
+    `# xiHalf = ${state.xiHalf}d  invR0 = ${state.invR0.toFixed(4)}`,
+  ];
+  const csv  = [...meta, header, ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `scan_d_contrast_L9p6mm_v${state.v0}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// draw placeholder on load
+renderScanPlots();
 </script>
 </body>
 </html>
