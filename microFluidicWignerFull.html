@@ -778,6 +778,12 @@ function renderInfo(){
   </div>`;
 }
 
+function arrMax(arr){
+  let m=0;
+  for(let i=0;i<arr.length;i++) if(arr[i]>m) m=arr[i];
+  return m || 1;
+}
+
 function renderAll(){
   if(!lastResult) return;
   // Each carpet normalises to its own peak so the single-source pattern is
@@ -785,16 +791,191 @@ function renderAll(){
   // in absolute scale.  The slice panel shows both curves independently scaled
   // to [min,max] and reports the contrast C, so quantitative comparison is
   // still possible.
-  let vmaxSS = 0;
-  for(let i=0;i<lastResult.ss.length;i++) if(lastResult.ss[i]>vmaxSS) vmaxSS=lastResult.ss[i];
-  let vmaxMF = 0;
-  for(let i=0;i<lastResult.mf.length;i++) if(lastResult.mf[i]>vmaxMF) vmaxMF=lastResult.mf[i];
-  renderCarpet('ssCanvas', lastResult.ss, viridis, vmaxSS || 1);
-  renderCarpet('mfCanvas', lastResult.mf, magma,   vmaxMF || 1);
+  renderCarpet('ssCanvas', lastResult.ss, viridis, arrMax(lastResult.ss));
+  renderCarpet('mfCanvas', lastResult.mf, magma,   arrMax(lastResult.mf));
   renderSlice();
   renderContrast();
   renderInfo();
 }
+
+// ─── Publication-quality pop-out figure (axes, colorbar, title) ───────────────
+function niceTicks(min,max,targetN){
+  const range=max-min;
+  if(range<1e-12) return [min];
+  const rough=range/(targetN-1);
+  const mag=Math.pow(10,Math.floor(Math.log10(rough)));
+  const norm=rough/mag;
+  const step=(norm<=1.5)?mag:(norm<=3.5)?2*mag:(norm<=7.5)?5*mag:10*mag;
+  const start=Math.ceil(min/step-1e-9)*step;
+  const ticks=[];
+  for(let t=start;t<=max+step*1e-6;t+=step) ticks.push(Math.round(t*1e10)/1e10);
+  return ticks;
+}
+function fmtTick(v){
+  if(Math.abs(v)<1e-10) return '0';
+  const av=Math.abs(v);
+  if(Number.isInteger(Math.round(v*1000)/1000)){
+    const dp=av>=10?0:av>=1?1:av>=0.1?2:3;
+    return v.toFixed(dp);
+  }
+  return v.toPrecision(3);
+}
+// Picks a single consistent length unit (mm/μm/nm) for an axis spanning up to maxAbsNm.
+function pickLenUnit(maxAbsNm){
+  if(maxAbsNm>=1e6) return{unit:'mm',div:1e6};
+  if(maxAbsNm>=1e3) return{unit:'μm',div:1e3};
+  return{unit:'nm',div:1};
+}
+// Greedy word-wrap; ctx.font must already be set to the size the text will be drawn at.
+function wrapText(ctx,text,maxWidth){
+  const words=text.split(' ');
+  const lines=[]; let cur='';
+  for(const w of words){
+    const test=cur?cur+' '+w:w;
+    if(ctx.measureText(test).width>maxWidth && cur){ lines.push(cur); cur=w; }
+    else cur=test;
+  }
+  if(cur) lines.push(cur);
+  return lines;
+}
+
+const PUB_PLOT_W=560, PUB_PLOT_H=784;
+const PUB_PAD={left:110,right:170,top:140,bottom:86};
+function pubDims(){
+  return{width:PUB_PAD.left+PUB_PLOT_W+PUB_PAD.right, height:PUB_PAD.top+PUB_PLOT_H+PUB_PAD.bottom};
+}
+
+function renderCarpetPublication(ctx,cvs,opts){
+  const{data,cmap,title}=opts;
+  const W=cvs.width, H=cvs.height;
+  const INK='#161616', GRID='#888888', BORDER='#333333';
+
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  if(!lastResult){ return; }
+  const vmax=arrMax(data);
+
+  const plotX=PUB_PAD.left, plotY=PUB_PAD.top, plotW=PUB_PLOT_W, plotH=PUB_PLOT_H;
+  const textMaxW=W-56;
+
+  // Title + subtitle (word-wrapped so long titles never run off the canvas edge)
+  ctx.textAlign='center';
+  ctx.font='bold 22px Georgia, "Times New Roman", serif';
+  ctx.fillStyle=INK;
+  let ty=30;
+  wrapText(ctx,title,textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=27; });
+
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle='#555555';
+  ty+=12;
+  const subtitle=`d = ${state.d_nm} nm   λ = ${state.lambda_nm} nm   f = ${state.f.toFixed(2)}   `+
+    `L = ${state.LNorm} z_T   σ_I(0)/d = ${state.sI0.toFixed(2)}   σ_c(0)/d = ${state.sc0.toFixed(2)}`;
+  wrapText(ctx,subtitle,textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=17; });
+
+  // Render the intensity data (sqrt-scaled, same mapping as on-screen) into an
+  // offscreen native-resolution canvas, then scale it up into the plot rect.
+  const off=document.createElement('canvas');
+  off.width=NX; off.height=NZ;
+  const octx=off.getContext('2d');
+  const img=octx.createImageData(NX,NZ);
+  const d8=img.data;
+  for(let iz=0;iz<NZ;iz++){
+    const rowOut=NZ-1-iz; // flip so z increases upward
+    for(let ix=0;ix<NX;ix++){
+      let v=data[iz*NX+ix]/vmax;
+      v=Math.sqrt(Math.max(0,v));
+      const[r,g,b]=cmap(v);
+      const idx=(rowOut*NX+ix)*4;
+      d8[idx]=r; d8[idx+1]=g; d8[idx+2]=b; d8[idx+3]=255;
+    }
+  }
+  octx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
+  ctx.drawImage(off,0,0,NX,NZ,plotX,plotY,plotW,plotH);
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5;
+  ctx.strokeRect(plotX,plotY,plotW,plotH);
+
+  // ── Measurement slice indicator ──
+  const{zmin,zmax,xiHalf}=lastResult;
+  const fracZ=(state.zsl-zmin)/(zmax-zmin);
+  const lineY=plotY+(1-Math.max(0,Math.min(1,fracZ)))*plotH;
+  ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(plotX,lineY); ctx.lineTo(plotX+plotW,lineY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='13px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='left';
+  ctx.fillText(`measurement slice, z = ${fmtLen(state.zsl*zT_nm())}`, plotX+6, lineY-6);
+
+  // ── X axis: grating bar position ──
+  const xMaxNm=xiHalf*state.d_nm;
+  const xUnit=pickLenUnit(xMaxNm);
+  const xTicks=niceTicks(-xMaxNm/xUnit.div, xMaxNm/xUnit.div, 7);
+  ctx.strokeStyle=GRID; ctx.lineWidth=1;
+  ctx.font='15px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='center';
+  xTicks.forEach(tv=>{
+    const xNm=tv*xUnit.div;
+    const frac=(xNm+xMaxNm)/(2*xMaxNm);
+    const px=plotX+frac*plotW;
+    ctx.beginPath(); ctx.moveTo(px,plotY+plotH); ctx.lineTo(px,plotY+plotH+7); ctx.stroke();
+    ctx.fillText(fmtTick(tv), px, plotY+plotH+24);
+  });
+  ctx.font='bold 17px Consolas, monospace';
+  ctx.fillText(`Grating bar position, x (${xUnit.unit})`, plotX+plotW/2, plotY+plotH+54);
+
+  // ── Y axis: optical axis z ──
+  const zminNm=zmin*zT_nm(), zmaxNm=zmax*zT_nm();
+  const yUnit=pickLenUnit(Math.max(Math.abs(zminNm),Math.abs(zmaxNm)));
+  const yTicks=niceTicks(zminNm/yUnit.div, zmaxNm/yUnit.div, 8);
+  ctx.textAlign='right'; ctx.font='15px Consolas, monospace';
+  yTicks.forEach(tv=>{
+    const zNm=tv*yUnit.div;
+    const frac=(zNm-zminNm)/(zmaxNm-zminNm);
+    const py=plotY+(1-frac)*plotH;
+    ctx.beginPath(); ctx.moveTo(plotX-7,py); ctx.lineTo(plotX,py); ctx.stroke();
+    ctx.fillText(fmtTick(tv), plotX-11, py+5);
+  });
+  ctx.save();
+  ctx.translate(26, plotY+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 17px Consolas, monospace';
+  ctx.fillText(`Optical axis, z (${yUnit.unit})`, 0, 0);
+  ctx.restore();
+
+  // ── Colorbar (matches the √-scaled colour mapping used in the image) ──
+  const cbX=plotX+plotW+34, cbW=24, cbY=plotY, cbH=plotH, cbSteps=256;
+  for(let i=0;i<cbSteps;i++){
+    const f=i/(cbSteps-1);            // linear intensity fraction (0..1)
+    const v=Math.sqrt(f);             // display-mapped value, same as image
+    const[r,g,b]=cmap(v);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    const y=cbY+cbH-(f)*cbH;
+    ctx.fillRect(cbX, y-cbH/cbSteps-1, cbW, cbH/cbSteps+2);
+  }
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5; ctx.strokeRect(cbX,cbY,cbW,cbH);
+  ctx.textAlign='left'; ctx.font='14px Consolas, monospace'; ctx.fillStyle=INK;
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y=cbY+cbH*(1-f);
+    ctx.beginPath(); ctx.moveTo(cbX+cbW,y); ctx.lineTo(cbX+cbW+6,y); ctx.strokeStyle=GRID; ctx.stroke();
+    ctx.fillText(f.toFixed(2), cbX+cbW+9, y+5);
+  });
+  ctx.save();
+  ctx.translate(cbX+cbW+68, cbY+cbH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText('Normalised intensity, I / Iₘₐˣ  (√ scale)', 0, 0);
+  ctx.restore();
+}
+
+const ssCanvasEl=document.getElementById('ssCanvas');
+const mfCanvasEl=document.getElementById('mfCanvas');
+ssCanvasEl._hiResDims=pubDims;
+ssCanvasEl._hiResRender=(ctx,cvs)=>renderCarpetPublication(ctx,cvs,{
+  data:lastResult&&lastResult.ss, cmap:viridis,
+  title:'Theoretical interferometry pattern after an optical grating'
+});
+mfCanvasEl._hiResDims=pubDims;
+mfCanvasEl._hiResRender=(ctx,cvs)=>renderCarpetPublication(ctx,cvs,{
+  data:lastResult&&lastResult.mf, cmap:magma,
+  title:'Theoretical interferometry pattern after a microfluidic grating and an optical grating'
+});
 
 // Initialise physical-unit display for σ sliders
 document.getElementById('v_sI0').textContent = `${state.sI0.toFixed(2)}d = ${(state.sI0*state.d_nm).toFixed(1)}nm`;

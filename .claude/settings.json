@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Read(//Applications/**)",
+      "Bash(npx --version)",
+      "Bash(npm ls *)",
+      "Bash(find / -maxdepth 4 -iname \"*playwright*\" -type d)",
+      "Bash(node -e \"require\\('playwright'\\)\")",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(npx playwright *)",
+      "Bash(node test_popout.js)",
+      "Bash(sips -Z 900 mf_native.png --out mf_native_small.png)",
+      "Bash(sips -g pixelWidth -g pixelHeight mf_native.png)",
+      "Bash(python3 -c ' *)",
+      "Bash(ls /Users/robertwaddy/Library/Caches/ms-playwright/ 2>&1)",
+      "Read(//Users/robertwaddy/Library/Caches/ms-playwright/**)",
+      "Bash(node test.js microFluidicWigner.html microFluidicWignerChromatic.html microFluidicWignerChromaticScan.html)",
+      "Bash(node -e \"require\\('playwright'\\); console.log\\('playwright available'\\)\")",
+      "Bash(node -e \"const {chromium} = require\\('playwright'\\); console.log\\('ok', typeof chromium\\)\")",
+      "Bash(npx --yes playwright --version)",
+      "Bash(node -e \"const {chromium}=require\\('playwright'\\); console.log\\('ok'\\)\")",
+      "Bash(node test_wigner.js)",
+      "Bash(node test.js)"
+    ]
+  }
+}

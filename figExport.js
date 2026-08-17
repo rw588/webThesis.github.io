@@ -14,15 +14,27 @@
   const EXPORT_SCALE = 3;
 
   // ── resolve export canvas ────────────────────────────────────────────────
+  // A page can set canvas._hiResDims = {width,height} (or a function returning
+  // that) to make the exported figure larger than the on-screen canvas — e.g.
+  // to leave room for axis labels, a colorbar, or a title. Defaults to the
+  // on-screen canvas size when not set.
+  function getExportDims(canvas) {
+    const d = canvas._hiResDims;
+    const resolved = typeof d === 'function' ? d() : d;
+    if (resolved && resolved.width && resolved.height) return resolved;
+    return { width: canvas.width, height: canvas.height };
+  }
+
   function getExportCanvas(canvas) {
     if (typeof canvas._hiResRender === 'function') {
+      const dims = getExportDims(canvas);
       const oc = document.createElement('canvas');
-      oc.width  = canvas.width  * EXPORT_SCALE;
-      oc.height = canvas.height * EXPORT_SCALE;
+      oc.width  = dims.width  * EXPORT_SCALE;
+      oc.height = dims.height * EXPORT_SCALE;
       const ctx = oc.getContext('2d');
       ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
-      // pass fake dims so all coordinate math runs at original scale
-      canvas._hiResRender(ctx, { width: canvas.width, height: canvas.height });
+      // pass fake dims so all coordinate math runs at original (pre-scale) size
+      canvas._hiResRender(ctx, dims);
       return oc;
     }
     return canvas;

@@ -891,7 +891,7 @@ function renderExtended(canvasId, data, cmap, vmax){
   const totalZ=zmax-zmin;
 
   // Linear: sqrt gamma.  Log: log₂(1+v) maps [0,1]→[0,1].
-  const toDisplay=logScale ? v=>Math.log2(1+Math.max(0,v)) : v=>Math.sqrt(Math.max(0,v));
+  const toDisplay=logScale ? v=>Math.log2(1+Math.max(0,v)) : v=>Math.max(0,v);
 
   for(let row=0;row<H;row++){
     // row 0 = top = zmax, row H-1 = bottom = zmin
@@ -940,7 +940,7 @@ function renderBeam(){
   for(let i=0;i<lastResult.ss.length;i++) if(lastResult.ss[i]>vmaxSS) vmaxSS=lastResult.ss[i];
   const range=vmaxSS||1;
 
-  const toDisplay=logScale ? v=>Math.log2(1+Math.max(0,v)) : v=>Math.sqrt(Math.max(0,v));
+  const toDisplay=logScale ? v=>Math.log2(1+Math.max(0,v)) : v=>Math.max(0,v);
   const sc0sq=Math.max(sc0*sc0,1e-40);
   function sigAt(z_prop){
     const fac=1-z_prop*invR0;
@@ -1293,6 +1293,12 @@ function renderVelDist(){
   ctx.fillText('v  (m/s)', pl+iW/2, H-3);
 }
 
+function arrMax(arr){
+  let m=0;
+  for(let i=0;i<arr.length;i++) if(arr[i]>m) m=arr[i];
+  return m || 1;
+}
+
 function renderAll(){
   if(!lastResult) return;
   // Each carpet normalises to its own peak so the single-source pattern is
@@ -1301,12 +1307,8 @@ function renderAll(){
   // to [min,max] and reports the contrast C, so quantitative comparison is
   // still possible.
   const dd=displayData();
-  let vmaxSS = 0;
-  for(let i=0;i<dd.ss.length;i++) if(dd.ss[i]>vmaxSS) vmaxSS=dd.ss[i];
-  let vmaxMF = 0;
-  for(let i=0;i<dd.mf.length;i++) if(dd.mf[i]>vmaxMF) vmaxMF=dd.mf[i];
-  renderExtended('ssCanvas', dd.ss, viridis, vmaxSS || 1);
-  renderExtended('mfCanvas', dd.mf, magma,   vmaxMF || 1);
+  renderExtended('ssCanvas', dd.ss, viridis, arrMax(dd.ss));
+  renderExtended('mfCanvas', dd.mf, magma,   arrMax(dd.mf));
   // Overlay label when showing a single-velocity preview
   if(previewResult){
     const lbl=`v = ${previewResult.v.toFixed(1)} m/s`;
@@ -1324,6 +1326,412 @@ function renderAll(){
   renderVelDist();
   renderInfo();
 }
+
+// ─── Publication-quality pop-out figure (axes, colorbar, title) ───────────────
+function niceTicks(min,max,targetN){
+  const range=max-min;
+  if(range<1e-12) return [min];
+  const rough=range/(targetN-1);
+  const mag=Math.pow(10,Math.floor(Math.log10(rough)));
+  const norm=rough/mag;
+  const step=(norm<=1.5)?mag:(norm<=3.5)?2*mag:(norm<=7.5)?5*mag:10*mag;
+  const start=Math.ceil(min/step-1e-9)*step;
+  const ticks=[];
+  for(let t=start;t<=max+step*1e-6;t+=step) ticks.push(Math.round(t*1e10)/1e10);
+  return ticks;
+}
+function fmtTick(v){
+  if(Math.abs(v)<1e-10) return '0';
+  const av=Math.abs(v);
+  if(Number.isInteger(Math.round(v*1000)/1000)){
+    const dp=av>=10?0:av>=1?1:av>=0.1?2:3;
+    return v.toFixed(dp);
+  }
+  return v.toPrecision(3);
+}
+function pickLenUnit(maxAbsNm){
+  if(maxAbsNm>=1e6) return{unit:'mm',div:1e6};
+  if(maxAbsNm>=1e3) return{unit:'μm',div:1e3};
+  return{unit:'nm',div:1};
+}
+function wrapText(ctx,text,maxWidth){
+  const words=text.split(' ');
+  const lines=[]; let cur='';
+  for(const w of words){
+    const test=cur?cur+' '+w:w;
+    if(ctx.measureText(test).width>maxWidth && cur){ lines.push(cur); cur=w; }
+    else cur=test;
+  }
+  if(cur) lines.push(cur);
+  return lines;
+}
+
+const PUB_PLOT_W=560, PUB_PLOT_H=784;
+const PUB_PAD={left:110,right:170,top:140,bottom:86};
+function pubDims(){
+  return{width:PUB_PAD.left+PUB_PLOT_W+PUB_PAD.right, height:PUB_PAD.top+PUB_PLOT_H+PUB_PAD.bottom};
+}
+
+function renderCarpetPublication(ctx,cvs,opts){
+  const{data,cmap,title}=opts;
+  const W=cvs.width, H=cvs.height;
+  const INK='#161616', GRID='#888888', BORDER='#333333';
+
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  if(!lastResult){ return; }
+  const vmax=arrMax(data);
+
+  const plotX=PUB_PAD.left, plotY=PUB_PAD.top, plotW=PUB_PLOT_W, plotH=PUB_PLOT_H;
+  const textMaxW=W-56;
+
+  // Title + subtitle (word-wrapped so long titles never run off the canvas edge)
+  ctx.textAlign='center';
+  ctx.font='bold 22px Georgia, "Times New Roman", serif';
+  ctx.fillStyle=INK;
+  let ty=30;
+  wrapText(ctx,title,textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=27; });
+
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle='#555555';
+  ty+=12;
+  const lamNm=H_PLANCK/(M_Mu*Math.max(1,state.v0))*1e9;
+  const velDesc=state.sigV<0.5 ? `v₀ = ${state.v0} m/s (δ)` : `v₀ = ${state.v0}±${state.sigV} m/s`;
+  const subtitle=`d = ${state.d_nm} nm   ${velDesc}   λ(v₀) = ${lamNm.toFixed(3)} nm   `+
+    `f = ${state.f.toFixed(2)}   L = ${state.LNorm} z_T   scale = ${logScale?'log₂(1+I)':'linear I'}`;
+  wrapText(ctx,subtitle,textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=17; });
+  if(previewResult){
+    ctx.fillStyle='#a05a00'; ctx.font='bold 13px Consolas, monospace';
+    ctx.fillText(`single-velocity preview: v = ${previewResult.v.toFixed(1)} m/s`, W/2, ty+2);
+    ty+=17;
+  }
+
+  // Render the intensity data into an offscreen native-resolution canvas
+  // (same colour mapping as the on-screen carpet), then scale into the plot rect.
+  const off=document.createElement('canvas');
+  off.width=NX; off.height=NZ;
+  const octx=off.getContext('2d');
+  const img=octx.createImageData(NX,NZ);
+  const d8=img.data;
+  const toDisplay=logScale ? v=>Math.log2(1+Math.max(0,v)) : v=>Math.max(0,v);
+  for(let iz=0;iz<NZ;iz++){
+    const rowOut=NZ-1-iz; // flip so z increases upward
+    for(let ix=0;ix<NX;ix++){
+      const v=toDisplay(data[iz*NX+ix]/vmax);
+      const[r,g,b]=cmap(v);
+      const idx=(rowOut*NX+ix)*4;
+      d8[idx]=r; d8[idx+1]=g; d8[idx+2]=b; d8[idx+3]=255;
+    }
+  }
+  octx.putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
+  ctx.drawImage(off,0,0,NX,NZ,plotX,plotY,plotW,plotH);
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5;
+  ctx.strokeRect(plotX,plotY,plotW,plotH);
+
+  // ── Measurement slice indicator ──
+  const{zmin,zmax,xiHalf}=lastResult;
+  const fracZ=(state.zsl-zmin)/(zmax-zmin);
+  const lineY=plotY+(1-Math.max(0,Math.min(1,fracZ)))*plotH;
+  ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(plotX,lineY); ctx.lineTo(plotX+plotW,lineY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='13px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='left';
+  ctx.fillText(`measurement slice, z = ${fmtLen(state.zsl*zT_nm())}`, plotX+6, lineY-6);
+
+  // ── X axis: grating bar position ──
+  const xMaxNm=xiHalf*state.d_nm;
+  const xUnit=pickLenUnit(xMaxNm);
+  const xTicks=niceTicks(-xMaxNm/xUnit.div, xMaxNm/xUnit.div, 7);
+  ctx.strokeStyle=GRID; ctx.lineWidth=1;
+  ctx.font='15px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='center';
+  xTicks.forEach(tv=>{
+    const xNm=tv*xUnit.div;
+    const frac=(xNm+xMaxNm)/(2*xMaxNm);
+    const px=plotX+frac*plotW;
+    ctx.beginPath(); ctx.moveTo(px,plotY+plotH); ctx.lineTo(px,plotY+plotH+7); ctx.stroke();
+    ctx.fillText(fmtTick(tv), px, plotY+plotH+24);
+  });
+  ctx.font='bold 17px Consolas, monospace';
+  ctx.fillText(`Grating bar position, x (${xUnit.unit})`, plotX+plotW/2, plotY+plotH+54);
+
+  // ── Y axis: optical axis z ──
+  const zminNm=zmin*zT_nm(), zmaxNm=zmax*zT_nm();
+  const yUnit=pickLenUnit(Math.max(Math.abs(zminNm),Math.abs(zmaxNm)));
+  const yTicks=niceTicks(zminNm/yUnit.div, zmaxNm/yUnit.div, 8);
+  ctx.textAlign='right'; ctx.font='15px Consolas, monospace';
+  yTicks.forEach(tv=>{
+    const zNm=tv*yUnit.div;
+    const frac=(zNm-zminNm)/(zmaxNm-zminNm);
+    const py=plotY+(1-frac)*plotH;
+    ctx.beginPath(); ctx.moveTo(plotX-7,py); ctx.lineTo(plotX,py); ctx.stroke();
+    ctx.fillText(fmtTick(tv), plotX-11, py+5);
+  });
+  ctx.save();
+  ctx.translate(26, plotY+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 17px Consolas, monospace';
+  ctx.fillText(`Optical axis, z (${yUnit.unit})`, 0, 0);
+  ctx.restore();
+
+  // ── Colorbar (matches the colour mapping used in the image) ──
+  const cbX=plotX+plotW+34, cbW=24, cbY=plotY, cbH=plotH, cbSteps=256;
+  for(let i=0;i<cbSteps;i++){
+    const f=i/(cbSteps-1);            // linear intensity fraction (0..1)
+    const v=toDisplay(f);             // display-mapped value, same as image
+    const[r,g,b]=cmap(v);
+    ctx.fillStyle=`rgb(${r},${g},${b})`;
+    const y=cbY+cbH-(f)*cbH;
+    ctx.fillRect(cbX, y-cbH/cbSteps-1, cbW, cbH/cbSteps+2);
+  }
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5; ctx.strokeRect(cbX,cbY,cbW,cbH);
+  ctx.textAlign='left'; ctx.font='14px Consolas, monospace'; ctx.fillStyle=INK;
+  [0,0.25,0.5,0.75,1].forEach(f=>{
+    const y=cbY+cbH*(1-f);
+    ctx.beginPath(); ctx.moveTo(cbX+cbW,y); ctx.lineTo(cbX+cbW+6,y); ctx.strokeStyle=GRID; ctx.stroke();
+    ctx.fillText(f.toFixed(2), cbX+cbW+9, y+5);
+  });
+  ctx.save();
+  ctx.translate(cbX+cbW+68, cbY+cbH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText(`Normalised intensity, I / Iₘₐˣ  (${logScale?'log₂':'linear'} scale)`, 0, 0);
+  ctx.restore();
+}
+
+// ─── Publication-quality pop-out: intensity slice ─────────────────────────────
+const SLICE_PUB_W=820, SLICE_PUB_H=560;
+const SLICE_PAD={left:90,right:40,top:112,bottom:150};
+function sliceDims(){ return{width:SLICE_PUB_W, height:SLICE_PUB_H}; }
+
+function renderSlicePublication(ctx,cvs){
+  const W=cvs.width, H=cvs.height;
+  const INK='#161616', GRID='#888888', BORDER='#333333';
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  if(!lastResult){ return; }
+  const{mf,ss}=displayData();
+  const{zmin,zmax,xiHalf}=lastResult;
+  const fracZ=(state.zsl-zmin)/(zmax-zmin);
+  const iz=Math.round(Math.max(0,Math.min(1,fracZ))*(NZ-1));
+  const mfS=mf.slice(iz*NX,(iz+1)*NX);
+  const ssS=ss.slice(iz*NX,(iz+1)*NX);
+
+  function stats(arr){
+    let mx=-Infinity,mn=Infinity;
+    for(let i=0;i<NX;i++){if(arr[i]>mx)mx=arr[i];if(arr[i]<mn)mn=arr[i];}
+    if(mx===mn){mx=mn+1;}
+    const C=(mx+mn>0)?(mx-mn)/(mx+mn):0;
+    return{mx,mn,C};
+  }
+  const sss=stats(ssS), smf=stats(mfS);
+
+  const plotX=SLICE_PAD.left, plotY=SLICE_PAD.top;
+  const plotW=W-SLICE_PAD.left-SLICE_PAD.right, plotH=H-SLICE_PAD.top-SLICE_PAD.bottom;
+  const textMaxW=W-56;
+
+  ctx.textAlign='center';
+  ctx.font='bold 22px Georgia, "Times New Roman", serif';
+  ctx.fillStyle=INK;
+  let ty=34;
+  wrapText(ctx,'Intensity slice through the interference pattern',textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=27; });
+
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle='#555555';
+  ty+=10;
+  ctx.fillText(`z = ${fmtLen(state.zsl*zT_nm())}   d = ${state.d_nm} nm   f = ${state.f.toFixed(2)}`, W/2, ty);
+  ty+=20;
+
+  const xMaxNm=xiHalf*state.d_nm;
+  const xUnit=pickLenUnit(xMaxNm);
+  const toX=i=>plotX+(i/(NX-1))*plotW;
+  const norm=(v,st)=>v/st.mx;
+  const toY=v=>plotY+plotH*(1-v);
+
+  function fill(data,st,col){
+    ctx.save(); ctx.beginPath();
+    ctx.moveTo(toX(0),toY(0));
+    for(let i=0;i<NX;i++) ctx.lineTo(toX(i),toY(norm(data[i],st)));
+    ctx.lineTo(toX(NX-1),toY(0)); ctx.closePath();
+    ctx.globalAlpha=0.12; ctx.fillStyle=col; ctx.fill(); ctx.restore();
+  }
+  function line(data,st,col){
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=2;
+    for(let i=0;i<NX;i++){ const x=toX(i), y=toY(norm(data[i],st)); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+    ctx.stroke();
+  }
+  fill(ssS,sss,'#0f9e82'); line(ssS,sss,'#0f9e82');
+  fill(mfS,smf,'#9a2fd6'); line(mfS,smf,'#9a2fd6');
+
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5;
+  ctx.strokeRect(plotX,plotY,plotW,plotH);
+
+  // ── X axis: grating bar position ──
+  const xTicks=niceTicks(-xMaxNm/xUnit.div, xMaxNm/xUnit.div, 7);
+  ctx.strokeStyle=GRID; ctx.lineWidth=1;
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='center';
+  xTicks.forEach(tv=>{
+    const xNm=tv*xUnit.div;
+    const frac=(xNm+xMaxNm)/(2*xMaxNm);
+    const px=plotX+frac*plotW;
+    ctx.beginPath(); ctx.moveTo(px,plotY+plotH); ctx.lineTo(px,plotY+plotH+7); ctx.stroke();
+    ctx.fillText(fmtTick(tv), px, plotY+plotH+22);
+  });
+  ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText(`Grating bar position, x (${xUnit.unit})`, plotX+plotW/2, plotY+plotH+48);
+
+  // ── Y axis: normalised intensity ──
+  const yTicks=[0,0.25,0.5,0.75,1];
+  ctx.textAlign='right'; ctx.font='14px Consolas, monospace';
+  yTicks.forEach(v=>{
+    const py=toY(v);
+    ctx.beginPath(); ctx.moveTo(plotX-7,py); ctx.lineTo(plotX,py); ctx.strokeStyle=GRID; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(v.toFixed(2), plotX-11, py+5);
+  });
+  ctx.save();
+  ctx.translate(28, plotY+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText('Normalised intensity, I / Iₘₐₓ (per curve)', 0, 0);
+  ctx.restore();
+
+  // ── Legend ──
+  ctx.font='14px Consolas, monospace'; ctx.textAlign='left';
+  const legY=plotY+plotH+72;
+  [['#0f9e82', `Single source (s = 0)   C = ${sss.C.toFixed(3)}`],
+   ['#9a2fd6', `Microfluidic (Σs)   C = ${smf.C.toFixed(3)}`]
+  ].forEach(([col,txt],i)=>{
+    const ly=legY+i*20;
+    ctx.fillStyle=col; ctx.fillRect(plotX,ly-10,16,4);
+    ctx.fillStyle=INK; ctx.fillText(txt, plotX+22, ly-5);
+  });
+}
+
+// ─── Publication-quality pop-out: contrast C(z) ────────────────────────────────
+const CONTRAST_PUB_W=820, CONTRAST_PUB_H=480;
+const CONTRAST_PAD={left:90,right:40,top:112,bottom:150};
+function contrastDims(){ return{width:CONTRAST_PUB_W, height:CONTRAST_PUB_H}; }
+
+function renderContrastPublication(ctx,cvs){
+  const W=cvs.width, H=cvs.height;
+  const INK='#161616', GRID='#888888', BORDER='#333333';
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+  if(!lastResult){ return; }
+  const{mf,ss}=displayData();
+  const{zmin,zmax}=lastResult;
+
+  const Cmf=new Float32Array(NZ), Css=new Float32Array(NZ);
+  for(let iz=0;iz<NZ;iz++){
+    let mxM=-Infinity,mnM=Infinity,mxS=-Infinity,mnS=Infinity;
+    for(let ix=0;ix<NX;ix++){
+      const vm=mf[iz*NX+ix], vs=ss[iz*NX+ix];
+      if(vm>mxM)mxM=vm; if(vm<mnM)mnM=vm;
+      if(vs>mxS)mxS=vs; if(vs<mnS)mnS=vs;
+    }
+    Cmf[iz]=(mxM+mnM>0)?(mxM-mnM)/(mxM+mnM):0;
+    Css[iz]=(mxS+mnS>0)?(mxS-mnS)/(mxS+mnS):0;
+  }
+
+  const plotX=CONTRAST_PAD.left, plotY=CONTRAST_PAD.top;
+  const plotW=W-CONTRAST_PAD.left-CONTRAST_PAD.right, plotH=H-CONTRAST_PAD.top-CONTRAST_PAD.bottom;
+  const textMaxW=W-56;
+
+  ctx.textAlign='center';
+  ctx.font='bold 22px Georgia, "Times New Roman", serif';
+  ctx.fillStyle=INK;
+  let ty=34;
+  wrapText(ctx,'Interference contrast versus propagation distance',textMaxW).forEach(line=>{ ctx.fillText(line,W/2,ty); ty+=27; });
+
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle='#555555';
+  ty+=10;
+  ctx.fillText(`d = ${state.d_nm} nm   f = ${state.f.toFixed(2)}   L = ${state.LNorm} z_T`, W/2, ty);
+  ty+=20;
+
+  const zminNm=zmin*zT_nm(), zmaxNm=zmax*zT_nm();
+  const zUnit=pickLenUnit(Math.max(Math.abs(zminNm),Math.abs(zmaxNm)));
+  const toX=iz=>plotX+(iz/(NZ-1))*plotW;
+  const toY=c=>plotY+plotH*(1-Math.max(0,Math.min(1,c)));
+
+  ctx.strokeStyle=GRID; ctx.lineWidth=0.6;
+  [0.25,0.5,0.75].forEach(c=>{
+    ctx.beginPath(); ctx.moveTo(plotX,toY(c)); ctx.lineTo(plotX+plotW,toY(c)); ctx.stroke();
+  });
+
+  function drawLine(arr,col){
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=2;
+    for(let iz=0;iz<NZ;iz++){ const x=toX(iz), y=toY(arr[iz]); iz===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+    ctx.stroke();
+  }
+  drawLine(Css,'#0f9e82'); drawLine(Cmf,'#9a2fd6');
+
+  // ── Current-slice marker ──
+  const fracZ=Math.max(0,Math.min(1,(state.zsl-zmin)/(zmax-zmin)));
+  const slX=plotX+fracZ*plotW;
+  ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.moveTo(slX,plotY); ctx.lineTo(slX,plotY+plotH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font='13px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='left';
+  ctx.fillText(`z = ${fmtLen(state.zsl*zT_nm())}`, slX+6, plotY+14);
+
+  ctx.strokeStyle=BORDER; ctx.lineWidth=1.5;
+  ctx.strokeRect(plotX,plotY,plotW,plotH);
+
+  // ── X axis: optical axis z ──
+  const zTicks=niceTicks(zminNm/zUnit.div, zmaxNm/zUnit.div, 7);
+  ctx.strokeStyle=GRID; ctx.lineWidth=1;
+  ctx.font='14px Consolas, monospace'; ctx.fillStyle=INK; ctx.textAlign='center';
+  zTicks.forEach(tv=>{
+    const zNm=tv*zUnit.div;
+    const frac=(zNm-zminNm)/(zmaxNm-zminNm);
+    const px=plotX+frac*plotW;
+    ctx.beginPath(); ctx.moveTo(px,plotY+plotH); ctx.lineTo(px,plotY+plotH+7); ctx.stroke();
+    ctx.fillText(fmtTick(tv), px, plotY+plotH+22);
+  });
+  ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText(`Optical axis, z (${zUnit.unit})`, plotX+plotW/2, plotY+plotH+48);
+
+  // ── Y axis: fringe contrast ──
+  const cTicks=[0,0.25,0.5,0.75,1];
+  ctx.textAlign='right'; ctx.font='14px Consolas, monospace';
+  cTicks.forEach(v=>{
+    const py=toY(v);
+    ctx.beginPath(); ctx.moveTo(plotX-7,py); ctx.lineTo(plotX,py); ctx.strokeStyle=GRID; ctx.stroke();
+    ctx.fillStyle=INK; ctx.fillText(v.toFixed(2), plotX-11, py+5);
+  });
+  ctx.save();
+  ctx.translate(28, plotY+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign='center'; ctx.font='bold 16px Consolas, monospace';
+  ctx.fillText('Fringe contrast, C(z)', 0, 0);
+  ctx.restore();
+
+  // ── Legend ──
+  ctx.font='14px Consolas, monospace'; ctx.textAlign='left';
+  const legY=plotY+plotH+72;
+  [['#0f9e82','Single source (s = 0)'],['#9a2fd6','Microfluidic (Σs)']].forEach(([col,txt],i)=>{
+    const ly=legY+i*20;
+    ctx.fillStyle=col; ctx.fillRect(plotX,ly-10,16,4);
+    ctx.fillStyle=INK; ctx.fillText(txt, plotX+22, ly-5);
+  });
+}
+
+const ssCanvasEl=document.getElementById('ssCanvas');
+const mfCanvasEl=document.getElementById('mfCanvas');
+ssCanvasEl._hiResDims=pubDims;
+ssCanvasEl._hiResRender=(ctx,cvs)=>renderCarpetPublication(ctx,cvs,{
+  data:displayData()&&displayData().ss, cmap:viridis,
+  title:'Theoretical interferometry pattern after an optical grating'
+});
+mfCanvasEl._hiResDims=pubDims;
+mfCanvasEl._hiResRender=(ctx,cvs)=>renderCarpetPublication(ctx,cvs,{
+  data:displayData()&&displayData().mf, cmap:magma,
+  title:'Theoretical interferometry pattern after a microfluidic grating and an optical grating'
+});
+
+const sliceCanvasEl=document.getElementById('sliceCanvas');
+sliceCanvasEl._hiResDims=sliceDims;
+sliceCanvasEl._hiResRender=(ctx,cvs)=>renderSlicePublication(ctx,cvs);
+
+const contrastCanvasEl=document.getElementById('contrastCanvas');
+contrastCanvasEl._hiResDims=contrastDims;
+contrastCanvasEl._hiResRender=(ctx,cvs)=>renderContrastPublication(ctx,cvs);
 
 applyZoom(DEFAULTS.LNorm);
 refreshPhysicalSpans();
